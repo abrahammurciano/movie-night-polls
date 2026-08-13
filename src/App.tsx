@@ -24,7 +24,7 @@ function isStoredHost(pollCode: string): boolean {
 }
 
 function codeFromPath(): string | null {
-	const match = window.location.pathname.match(/^\/([A-Z0-9]{6})$/i);
+	const match = window.location.hash.match(/^#\/([A-Z0-9]{6})$/i);
 	return match ? match[1].toUpperCase() : null;
 }
 
@@ -50,7 +50,7 @@ function App() {
 		if (isCreator) localStorage.setItem(storageKey(`host.${pollCode}`), selfId);
 		const s = new URLSearchParams(window.location.search).get('session');
 		const qs = s && s !== '0' ? `?session=${s}` : '';
-		history.pushState(null, '', `/${pollCode}${qs}`);
+		history.pushState(null, '', `${qs}#/${pollCode}`);
 		setSession({ pollCode, displayName, autoShare: isCreator, isHost: isCreator });
 	}
 
@@ -68,7 +68,7 @@ function App() {
 				onLeave={() => {
 					const session = new URLSearchParams(window.location.search).get('session');
 					const qs = session && session !== '0' ? `?session=${session}` : '';
-					history.pushState(null, '', `/${qs}`);
+					history.pushState(null, '', `${qs}#`);
 					setSession(null);
 				}}
 			/>

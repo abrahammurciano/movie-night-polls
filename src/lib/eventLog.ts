@@ -103,22 +103,23 @@ export function createEventLog(persistKey?: string): EventLog {
 	function connectRoom(room: Room) {
 		const action = room.makeAction<Uint8Array>('yjsUpdate');
 
-		// Send our full state to newly connected peers
+		// Send full state to newly connected peers
 		room.onPeerJoin = () => {
-			const update = Y.encodeStateAsUpdate(doc);
-			void action.send(update);
+			void action.send(Y.encodeStateAsUpdate(doc));
 		};
 
-		// Broadcast incremental updates to all peers
-		doc.on('update', (update: Uint8Array, origin: unknown) => {
+		// Broadcast full state on every local update.
+		// Full state (not just the delta) ensures peers with a stale state vector
+		// can always apply the update without missing prior operations.
+		doc.on('update', (_delta: Uint8Array, origin: unknown) => {
 			if (origin !== 'remote') {
-				void action.send(update);
+				void action.send(Y.encodeStateAsUpdate(doc));
 			}
 		});
 
-		// Apply incoming updates
-		action.onMessage = (update) => {
-			Y.applyUpdate(doc, update, 'remote');
+		// Apply incoming state snapshots
+		action.onMessage = (snapshot) => {
+			Y.applyUpdate(doc, snapshot, 'remote');
 		};
 	}
 

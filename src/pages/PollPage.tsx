@@ -247,7 +247,7 @@ function GenreTagsSm({ genreIds }: { genreIds: number[] }) {
 }
 
 function ShareModal({ pollCode, onClose }: { pollCode: string; onClose: () => void }) {
-	const url = `${window.location.origin}/${pollCode}`;
+	const url = `${window.location.origin}${import.meta.env.BASE_URL}#/${pollCode}`;
 	const [copied, setCopied] = useState(false);
 	const canShare = typeof navigator.share === 'function';
 
@@ -602,6 +602,13 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 				)}
 
 				<p className="text-xs text-muted-foreground/50">Decided by ranked choice voting</p>
+				<button
+					className="mt-4 rounded-xl px-6 py-2.5 text-sm font-medium transition-colors"
+					style={{ background: 'oklch(1 0 0 / 0.07)', color: 'oklch(1 0 0 / 0.6)' }}
+					onClick={() => _onLeave?.()}
+				>
+					← Back to home
+				</button>
 			</div>
 		);
 	}

@@ -1,32 +1,49 @@
-# React + TypeScript + Vite
+# Movie Night Polls
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A serverless, peer-to-peer movie voting app. Create a poll, nominate movies, and rank them — no account, no server, no data leaving your browser.
 
-Currently, two official plugins are available:
+**[Live demo →](https://abrahammurciano.github.io/movie-night-polls/)**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## How it works
 
-## React Compiler
+1. **Create a poll** — you get a 6-character code and a shareable link/QR code
+2. **Everyone nominates** — each participant searches [TMDB](https://www.themoviedb.org/) and picks one movie
+3. **Everyone votes** — rank the nominations in order of preference
+4. **See the winner** — [instant-runoff voting](https://en.wikipedia.org/wiki/Instant-runoff_voting) determines the result
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+No sign-up required. The host controls phase transitions (nominations → voting → results). Voting closes automatically once all participants have submitted a ballot.
 
-## Expanding the Oxlint configuration
+## Architecture
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+The app is entirely client-side. Peers discover each other via [Nostr](https://nostr.com/) relays and then communicate directly over WebRTC using [Trystero](https://github.com/dmotz/trystero). The shared state is an append-only event log replicated across peers using [Yjs](https://github.com/yjs/yjs) CRDTs — so every peer always converges to the same state, even if they join late or messages arrive out of order.
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+The Yjs document is also persisted to `localStorage`, so polls survive a page refresh.
+
+## Tech stack
+
+| | |
+|---|---|
+| [Vite](https://vite.dev/) + [React](https://react.dev/) | Build tooling and UI |
+| [Trystero](https://github.com/dmotz/trystero) (Nostr transport) | P2P peer discovery and WebRTC data channels |
+| [Yjs](https://github.com/yjs/yjs) | CRDT-based replicated event log |
+| [TMDB API](https://developer.themoviedb.org/) | Movie search, posters, metadata |
+| [Tailwind CSS](https://tailwindcss.com/) | Styling |
+
+## Development
+
+```sh
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+To simulate multiple participants in one browser, open tabs with `?session=1`, `?session=2`, etc.
+
+## Deployment
+
+Pushes to `main` automatically deploy to GitHub Pages via the included Actions workflow.
+
+To deploy manually:
+
+```sh
+npm run build   # outputs to dist/
+```

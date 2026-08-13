@@ -73,5 +73,15 @@ export function usePoll(pollCode: string, displayName: string, isHost: boolean) 
 		logRef.current.append({ type: 'phase_advanced', peerId: selfId, timestamp: Date.now() });
 	}, []);
 
+	// Auto-close when every peer has voted (host only, to avoid duplicate events)
+	useEffect(() => {
+		if (!isHost || state.phase !== 'voting') return;
+		const peerCount = Object.keys(state.peers).length;
+		const ballotCount = Object.keys(state.ballots).length;
+		if (peerCount > 0 && ballotCount >= peerCount) {
+			logRef.current.append({ type: 'phase_advanced', peerId: selfId, timestamp: Date.now() });
+		}
+	}, [isHost, state.phase, state.peers, state.ballots]);
+
 	return { state, selfId, nominateMovie, submitBallot, advancePhase };
 }
