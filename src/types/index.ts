@@ -37,5 +37,7 @@ export interface PollState {
 	peers: Record<PeerId, { name: string }>;
 	movies: Movie[];
 	ballots: Record<PeerId, string[]>;
-	winner: Movie | null;
+	winner: Movie[];
+	finalTally: Map<string, { primary: number; transferred: number }>;
+	eliminatedVotes: Map<string, number>;
 }

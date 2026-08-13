@@ -57,7 +57,9 @@ export function createEventLog(persistKey?: string): EventLog {
 			peers: {},
 			movies: [],
 			ballots: {},
-			winner: null,
+			winner: [],
+			finalTally: new Map(),
+			eliminatedVotes: new Map(),
 		};
 
 		for (const event of events.toArray()) {
@@ -72,16 +74,22 @@ export function createEventLog(persistKey?: string): EventLog {
 					state.peers[event.peerId] = { name: event.name };
 					break;
 				case 'nomination':
-					if (state.phase === 'nominations' && !state.movies.find((m) => m.nominatedBy === event.peerId))
-						state.movies.push(event.movie);
+					if (state.phase === 'nominations') {
+						const maxNominations = state.settings?.maxNominationsPerUser ?? 1;
+						const userNominationCount = state.movies.filter((m) => m.nominatedBy === event.peerId).length;
+						if (userNominationCount < maxNominations) {
+							state.movies.push(event.movie);
+						}
+					}
 					break;
 				case 'phase_advanced':
 					if (event.peerId === state.hostId) {
 						if (state.phase === 'nominations') state.phase = 'voting';
 						else if (state.phase === 'voting') {
 							state.phase = 'results';
-							state.winner = runInstantRunoff(state.ballots, state.movies);
-						}
+							const result = runInstantRunoff(state.ballots, state.movies);
+							state.winner = result.winners;
+							state.finalTally = result.finalTally;						state.eliminatedVotes = result.eliminatedVotes;						}
 					}
 					break;
 				case 'ballot':

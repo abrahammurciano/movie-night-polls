@@ -9,12 +9,13 @@ interface Props {
 }
 
 export function SettingsModal({ isOpen, onClose, maxNominationsPerUser, onSave }: Props) {
-	const [localMaxNominations, setLocalMaxNominations] = useState(maxNominationsPerUser);
+	const [localMaxNominations, setLocalMaxNominations] = useState(String(maxNominationsPerUser));
 
 	if (!isOpen) return null;
 
 	function handleSave() {
-		onSave({ maxNominationsPerUser: localMaxNominations });
+		const parsed = parseInt(localMaxNominations);
+		onSave({ maxNominationsPerUser: Math.min(20, Math.max(1, isNaN(parsed) ? 1 : parsed)) });
 		onClose();
 	}
 
@@ -46,7 +47,7 @@ export function SettingsModal({ isOpen, onClose, maxNominationsPerUser, onSave }
 							max="20"
 							className="cinema-input"
 							value={localMaxNominations}
-							onChange={(e) => setLocalMaxNominations(Math.max(1, parseInt(e.target.value) || 1))}
+						onChange={(e) => setLocalMaxNominations(e.target.value)}
 						/>
 						<p className="text-[11px] text-muted-foreground">
 							How many movies can each person nominate?

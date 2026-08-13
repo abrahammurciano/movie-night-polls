@@ -83,56 +83,51 @@ export function HomePage({ onJoin, initialCode, initialName }: Props) {
 					</div>
 
 					<div className="flex gap-2">
-						<Button
-							variant="secondary"
-						className="cursor-pointer rounded-xl font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] border-2 border-foreground/50"
-						style={{ height: '2.625rem' }}
-						disabled={!ready}
-						onClick={() => setShowSettingsModal(true)}
-					>
-						Options
-					</Button>
-
-					<Button
-						variant={code.trim() ? 'outline' : undefined}
-						className={`cursor-pointer flex-1 rounded-xl font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] ${code.trim() ? 'border-2 border-foreground/50 font-medium text-foreground hover:bg-secondary hover:text-foreground' : 'glow-amber'}`}
-						style={{ height: '2.625rem' }}
-						disabled={!ready}
-						onClick={handleCreate}
-					>
-						Create poll
-					</Button>
-				</div>
-
-				<div className="flex gap-2 items-end">
-					<div className="flex-1 space-y-1.5">
-						<label
-							className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground block"
-							htmlFor="code"
+						<button
+							className="flex-none rounded-xl border-2 border-foreground/50 bg-transparent px-4 text-sm font-medium text-foreground transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+							style={{ height: '2.625rem' }}
+							onClick={() => setShowSettingsModal(true)}
 						>
-							Poll code
-						</label>
-						<input
-							id="code"
-							className="cinema-input font-mono uppercase"
-							style={{ letterSpacing: '0.18em' }}
-							placeholder="ABC123"
-							value={code}
-							onChange={(e) => setCode(e.target.value)}
-							onKeyDown={(e) => e.key === 'Enter' && ready && code.trim() && handleJoin()}
-						/>
+							Options
+						</button>
+						<Button
+							className="flex-1 rounded-xl font-semibold glow-amber transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+							style={{ height: '2.625rem' }}
+							disabled={!ready}
+							onClick={handleCreate}
+						>
+							Create poll
+						</Button>
 					</div>
 
-					<Button
-						variant={code.trim() ? undefined : 'outline'}
-						className={`cursor-pointer rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] ${code.trim() ? 'font-semibold glow-amber' : 'border-2 border-foreground/50 font-medium text-foreground hover:bg-secondary hover:text-foreground'}`}
-						style={{ height: '2.625rem' }}
-						disabled={!ready || code.trim().length === 0}
-						onClick={handleJoin}
-					>
-						Join
-					</Button>
-				</div>
+					<div className="flex gap-2 items-end">
+						<div className="flex-1 space-y-1.5">
+							<label
+								className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground"
+								htmlFor="code"
+							>
+								Poll code
+							</label>
+							<input
+								id="code"
+								className="cinema-input font-mono uppercase"
+								style={{ letterSpacing: '0.18em' }}
+								placeholder="ABC123"
+								value={code}
+								onChange={(e) => setCode(e.target.value)}
+								onKeyDown={(e) => e.key === 'Enter' && ready && code.trim() && handleJoin()}
+							/>
+						</div>
+						<Button
+							variant={code.trim() ? undefined : 'outline'}
+							className={`rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer ${code.trim() ? 'font-semibold glow-amber' : 'border-foreground/50 font-medium text-foreground hover:bg-secondary hover:text-foreground'}`}
+							style={{ height: '2.625rem' }}
+							disabled={!ready || code.trim().length === 0}
+							onClick={handleJoin}
+						>
+							Join
+						</Button>
+					</div>
 				</div>
 			</div>
 

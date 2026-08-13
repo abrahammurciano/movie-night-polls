@@ -1,8 +1,9 @@
 import { usePoll } from '@/hooks/usePoll';
 import { Button } from '@/components/ui/button';
 import { MovieSearch, type MovieData } from '@/components/MovieSearch';
+import { VoteChart } from '@/components/VoteChart';
 import { posterUrl, getGenreNames } from '@/lib/tmdb';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import type { Movie } from '@/types';
 import type { Phase } from '@/types';
@@ -86,9 +87,11 @@ interface MovieDetailsModalProps {
 	onClose: () => void;
 	peerName?: string;
 	onNominate?: () => void;
+	userNominationCount?: number;
+	maxNominationsPerUser?: number;
 }
 
-function MovieDetailsModal({ movie, onClose, peerName, onNominate }: MovieDetailsModalProps) {
+function MovieDetailsModal({ movie, onClose, peerName, onNominate, userNominationCount = 0, maxNominationsPerUser = 1 }: MovieDetailsModalProps) {
 	const [genres, setGenres] = useState<string[]>([]);
 
 	useEffect(() => {
@@ -132,7 +135,7 @@ function MovieDetailsModal({ movie, onClose, peerName, onNominate }: MovieDetail
 							}}
 							onClick={onNominate}
 						>
-							Nominate
+							Nominate{maxNominationsPerUser > 1 ? ` (${userNominationCount + 1}/${maxNominationsPerUser})` : ''}
 						</button>
 					)}
 				</div>
@@ -488,6 +491,7 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 	});
 	const [draggedId, setDraggedId] = useState<string | null>(null);
 	const [insertBeforeId, setInsertBeforeId] = useState<string | null>(null);
+	const dragStartTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
 	const [pendingNomination, setPendingNomination] = useState<MovieData | null>(null);
 	const [shareOpen, setShareOpen] = useState(autoShare);
@@ -501,7 +505,10 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 		localStorage.setItem(storageKey(`ranking.${pollCode}`), JSON.stringify(ranking));
 	}, [ranking, pollCode]);
 
-	const hasNominated = state.movies.some((m) => m.nominatedBy === selfId);
+	const userNominationCount = state.movies.filter((m) => m.nominatedBy === selfId).length;
+	const maxNominationsPerUser = state.settings?.maxNominationsPerUser ?? 1;
+	const canNominate = userNominationCount < maxNominationsPerUser;
+	const uniqueNominators = new Set(state.movies.map((m) => m.nominatedBy)).size;
 	const hasVoted = Boolean(state.ballots[selfId]);
 	const peerCount = Object.keys(state.peers).length;
 	const ballotCount = Object.keys(state.ballots).length;
@@ -509,6 +516,7 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 	const statusText = pollStatusText(state.phase, peerCount, ballotCount);
 
 	function resetDrag() {
+		if (dragStartTimeout.current) { clearTimeout(dragStartTimeout.current); dragStartTimeout.current = null; }
 		setDraggedId(null);
 		setInsertBeforeId(null);
 		setRankingDragActive(false);
@@ -525,7 +533,8 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 
 	function handleDragStart(id: string) {
 		const currentRanking = ranking;
-		setTimeout(() => {
+		dragStartTimeout.current = setTimeout(() => {
+			dragStartTimeout.current = null;
 			setDraggedId(id);
 			const idx = currentRanking.indexOf(id);
 			setInsertBeforeId(idx !== -1 ? (currentRanking[idx + 1] ?? null) : null);
@@ -588,6 +597,8 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 	}
 
 	if (state.phase === 'results') {
+		const isTie = state.winner.length > 1;
+
 		return (
 			<div className="flex min-h-svh flex-col items-center justify-center gap-5 px-6 py-14 text-center">
 				<div
@@ -602,37 +613,82 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 					🏆
 				</div>
 
-				{state.winner && (
+				{state.winner.length > 0 && (
 					<div className="flex flex-col items-center gap-4">
-						{state.winner.posterPath && (
-							<img
-								src={posterUrl(state.winner.posterPath, 'w185')}
-								alt={state.winner.title}
-								className="w-28 rounded-xl shadow-2xl"
-								style={{ boxShadow: '0 0 40px -10px oklch(0.8 0.12 295 / 0.4)' }}
-							/>
+						{isTie ? (
+							<>
+								<div className="grid grid-cols-2 gap-3">
+									{state.winner.map((movie) => (
+										<div key={movie.id} className="flex flex-col items-center gap-2">
+											{movie.posterPath ? (
+												<img
+													src={posterUrl(movie.posterPath, 'w92')}
+													alt={movie.title}
+													className="h-32 w-20 rounded-lg object-cover shadow-lg"
+													style={{ boxShadow: '0 0 30px -8px oklch(0.8 0.12 295 / 0.4)' }}
+												/>
+											) : (
+												<div
+													className="flex items-center justify-center rounded-lg text-2xl"
+													style={{ width: '80px', height: '128px', background: 'oklch(1 0 0 / 6%)' }}
+												>
+													🎬
+												</div>
+											)}
+											<div className="text-center">
+												<h3 className="text-sm font-semibold leading-tight line-clamp-2">{movie.title}</h3>
+												{movie.year && (
+													<p className="text-xs text-muted-foreground">{movie.year}</p>
+												)}
+											</div>
+										</div>
+									))}
+								</div>
+								<div>
+									<p
+										className="mb-1 text-[11px] font-semibold uppercase tracking-[0.2em]"
+										style={{ color: 'oklch(0.8 0.12 295)' }}
+									>
+										It's a tie!
+									</p>
+									<p className="text-sm text-muted-foreground">
+										The votes were split between these picks
+									</p>
+								</div>
+							</>
+						) : (
+							<>
+								{state.winner[0].posterPath && (
+									<img
+										src={posterUrl(state.winner[0].posterPath, 'w185')}
+										alt={state.winner[0].title}
+										className="w-28 rounded-xl shadow-2xl"
+										style={{ boxShadow: '0 0 40px -10px oklch(0.8 0.12 295 / 0.4)' }}
+									/>
+								)}
+								<div>
+									<p
+										className="mb-1 text-[11px] font-semibold uppercase tracking-[0.2em]"
+										style={{ color: 'oklch(0.8 0.12 295)' }}
+									>
+										Tonight's pick
+									</p>
+									<h2
+										className="text-3xl font-bold tracking-tight"
+										style={{ letterSpacing: '-0.025em' }}
+									>
+										{state.winner[0].title}
+									</h2>
+									{state.winner[0].year && (
+										<p className="mt-1 text-sm text-muted-foreground">{state.winner[0].year}</p>
+									)}
+								</div>
+							</>
 						)}
-						<div>
-							<p
-								className="mb-1 text-[11px] font-semibold uppercase tracking-[0.2em]"
-								style={{ color: 'oklch(0.8 0.12 295)' }}
-							>
-								Tonight's pick
-							</p>
-							<h2
-								className="text-3xl font-bold tracking-tight"
-								style={{ letterSpacing: '-0.025em' }}
-							>
-								{state.winner.title}
-							</h2>
-							{state.winner.year && (
-								<p className="mt-1 text-sm text-muted-foreground">{state.winner.year}</p>
-							)}
-						</div>
 					</div>
 				)}
 
-				{!state.winner && (
+				{state.winner.length === 0 && (
 					<div>
 						<h2 className="text-2xl font-bold">No winner</h2>
 						<p className="mt-1 text-sm text-muted-foreground">
@@ -641,7 +697,12 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 					</div>
 				)}
 
-				<p className="text-xs text-muted-foreground/50">Decided by ranked choice voting</p>
+{state.movies.length > 0 && (
+				<div className="w-full max-w-xs rounded-xl p-4" style={{ background: 'oklch(1 0 0 / 0.04)', border: '1px solid oklch(1 0 0 / 0.08)' }}>
+					<VoteChart movies={state.movies} tally={state.finalTally} eliminatedVotes={state.eliminatedVotes} />
+					</div>
+				)}
+
 				<button
 					className="mt-4 rounded-xl px-6 py-2.5 text-sm font-medium transition-colors"
 					style={{ background: 'oklch(1 0 0 / 0.07)', color: 'oklch(1 0 0 / 0.6)' }}
@@ -707,11 +768,11 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 			</div>
 
 			<main className="flex flex-1 flex-col gap-4 px-5 py-5">
-				{/* Nominate — only during nominations phase, only until user has nominated */}
-				{state.phase === 'nominations' && !hasNominated && (
+				{/* Nominate — only during nominations phase, only until user has reached max nominations */}
+				{state.phase === 'nominations' && canNominate && (
 					<section className="glass-card p-5 relative z-[1]">
 						<p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-							Nominate
+							Nominate{maxNominationsPerUser > 1 ? ` (${userNominationCount + 1}/${maxNominationsPerUser})` : ''}
 						</p>
 						<MovieSearch onSelect={setPendingNomination} />
 					</section>
@@ -822,7 +883,7 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 							);
 						})()}
 
-						{state.phase === 'nominations' && !hasVoted && (
+						{state.phase === 'nominations' && !hasVoted && ranking.length > 0 && (
 							<p className="mt-4 text-center text-sm text-muted-foreground/60">
 								Voting hasn’t started yet — the host will open it once nominations are in.
 							</p>
@@ -955,12 +1016,14 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 					nominateMovie(pendingNomination);
 					setPendingNomination(null);
 				} : undefined}
+				userNominationCount={pendingNomination ? userNominationCount : undefined}
+				maxNominationsPerUser={pendingNomination ? maxNominationsPerUser : undefined}
 			/>
 
 			{confirmPhase && (state.phase === 'nominations' || state.phase === 'voting') && (
 				<PhaseConfirmModal
 					phase={state.phase}
-					nominationCount={state.movies.length}
+					nominationCount={uniqueNominators}
 					ballotCount={ballotCount}
 					peerCount={peerCount}
 					onConfirm={() => { advancePhase(); setConfirmPhase(false); }}
@@ -969,7 +1032,10 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 			)}
 
 			{shareOpen && (
-				<ShareModal pollCode={pollCode} onClose={() => setShareOpen(false)} />
+				<ShareModal
+					pollCode={pollCode}
+					onClose={() => setShareOpen(false)}
+				/>
 			)}
 
 			{nameEditOpen && (

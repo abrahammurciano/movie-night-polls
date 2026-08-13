@@ -21,7 +21,9 @@ export function usePoll(pollCode: string, displayName: string, isHost: boolean) 
 		peers: {},
 		movies: [],
 		ballots: {},
-		winner: null,
+		winner: [],
+		finalTally: new Map(),
+		eliminatedVotes: new Map(),
 	});
 
 	// Connect to room immediately when pollCode is set
