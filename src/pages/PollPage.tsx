@@ -250,7 +250,7 @@ function GenreTagsSm({ genreIds }: { genreIds: number[] }) {
 }
 
 function ShareModal({ pollCode, onClose }: { pollCode: string; onClose: () => void }) {
-	const url = `${window.location.origin}/${pollCode}`;
+	const url = `${window.location.origin}${window.location.pathname}#/${pollCode}`;
 	const [copied, setCopied] = useState(false);
 	const canShare = typeof navigator.share === 'function';
 
