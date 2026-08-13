@@ -47,7 +47,7 @@ export function SettingsModal({ isOpen, onClose, maxNominationsPerUser, onSave }
 							max="20"
 							className="cinema-input"
 							value={localMaxNominations}
-						onChange={(e) => setLocalMaxNominations(e.target.value)}
+							onChange={(e) => setLocalMaxNominations(e.target.value)}
 						/>
 						<p className="text-[11px] text-muted-foreground">
 							How many movies can each person nominate?

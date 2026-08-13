@@ -30,7 +30,6 @@ export function runInstantRunoff(
 
 	const remaining = new Set(movies.map((m) => m.id));
 	const eliminatedVotes = new Map<string, number>();
-	let lastTally = new Map<string, number>();
 
 	while (remaining.size > 1) {
 		// Count first-choice votes among still-active candidates
@@ -41,8 +40,6 @@ export function runInstantRunoff(
 			const top = ballot.find((id) => remaining.has(id));
 			if (top) tally.set(top, (tally.get(top) ?? 0) + 1);
 		}
-
-		lastTally = tally;
 
 		// Check for majority
 		const total = validBallots.length;

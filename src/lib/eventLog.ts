@@ -89,7 +89,8 @@ export function createEventLog(persistKey?: string): EventLog {
 							state.phase = 'results';
 							const result = runInstantRunoff(state.ballots, state.movies);
 							state.winner = result.winners;
-							state.finalTally = result.finalTally;						state.eliminatedVotes = result.eliminatedVotes;						}
+							state.finalTally = result.finalTally; state.eliminatedVotes = result.eliminatedVotes;
+						}
 					}
 					break;
 				case 'ballot':
