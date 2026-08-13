@@ -5,9 +5,13 @@ import { VoteChart } from '@/components/VoteChart';
 import { posterUrl, getGenreNames } from '@/lib/tmdb';
 import { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import type { Movie } from '@/types';
+import type { Movie, PeerId } from '@/types';
 import type { Phase } from '@/types';
 import { storageKey } from '@/lib/identity';
+
+function nominatorNames(nominatedBy: PeerId[], peers: Record<PeerId, { name: string }>): string {
+	return nominatedBy.map((id) => peers[id]?.name ?? '?').join(' & ');
+}
 
 interface Props {
 	pollCode: string;
@@ -505,10 +509,10 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 		localStorage.setItem(storageKey(`ranking.${pollCode}`), JSON.stringify(ranking));
 	}, [ranking, pollCode]);
 
-	const userNominationCount = state.movies.filter((m) => m.nominatedBy === selfId).length;
+	const userNominationCount = state.movies.filter((m) => m.nominatedBy.includes(selfId)).length;
 	const maxNominationsPerUser = state.settings?.maxNominationsPerUser ?? 1;
 	const canNominate = userNominationCount < maxNominationsPerUser;
-	const uniqueNominators = new Set(state.movies.map((m) => m.nominatedBy)).size;
+	const uniqueNominators = new Set(state.movies.flatMap((m) => m.nominatedBy)).size;
 	const hasVoted = Boolean(state.ballots[selfId]);
 	const peerCount = Object.keys(state.peers).length;
 	const ballotCount = Object.keys(state.ballots).length;
@@ -869,7 +873,7 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 														title="Movie details"
 													>ⓘ</button>
 													<p className="text-[10px] text-muted-foreground text-right mt-1">
-														{state.peers[movie.nominatedBy]?.name ?? '?'}
+														{nominatorNames(movie.nominatedBy, state.peers)}
 													</p>
 												</div>
 												{canRank && (
@@ -975,7 +979,7 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 											ⓘ
 										</button>
 										<p className="text-[10px] text-muted-foreground text-right">
-											{state.peers[movie.nominatedBy]?.name ?? '?'}
+											{nominatorNames(movie.nominatedBy, state.peers)}
 										</p>
 									</div>
 								</li>
@@ -1010,12 +1014,12 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 			</footer>
 
 			<MovieDetailsModal
-				movie={pendingNomination ? ({ ...pendingNomination, nominatedBy: selfId } as Movie) : selectedMovie}
+				movie={pendingNomination ? ({ ...pendingNomination, nominatedBy: [selfId] } as Movie) : selectedMovie}
 				onClose={() => {
 					if (pendingNomination) setPendingNomination(null);
 					else setSelectedMovie(null);
 				}}
-				peerName={pendingNomination ? undefined : (selectedMovie ? state.peers[selectedMovie.nominatedBy]?.name : undefined)}
+				peerName={pendingNomination ? undefined : (selectedMovie ? nominatorNames(selectedMovie.nominatedBy, state.peers) : undefined)}
 				onNominate={pendingNomination ? () => {
 					nominateMovie(pendingNomination);
 					setPendingNomination(null);

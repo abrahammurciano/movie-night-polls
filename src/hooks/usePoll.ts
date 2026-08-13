@@ -55,7 +55,7 @@ export function usePoll(pollCode: string, displayName: string, isHost: boolean) 
 	}, [displayName, isHost, pollCode]);
 
 	const nominateMovie = useCallback((movieData: MovieData) => {
-		const movie: Movie = { ...movieData, nominatedBy: selfId };
+		const movie: Movie = { ...movieData, nominatedBy: [selfId] };
 		logRef.current.append({
 			type: 'nomination',
 			peerId: selfId,

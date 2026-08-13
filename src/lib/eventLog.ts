@@ -76,9 +76,17 @@ export function createEventLog(persistKey?: string): EventLog {
 				case 'nomination':
 					if (state.phase === 'nominations') {
 						const maxNominations = state.settings?.maxNominationsPerUser ?? 1;
-						const userNominationCount = state.movies.filter((m) => m.nominatedBy === event.peerId).length;
+						const userNominationCount = state.movies.filter((m) => m.nominatedBy.includes(event.peerId)).length;
 						if (userNominationCount < maxNominations) {
-							state.movies.push(event.movie);
+							const existing = event.movie.tmdbId !== undefined
+								? state.movies.find((m) => m.tmdbId === event.movie.tmdbId)
+								: undefined;
+							if (existing) {
+								if (!existing.nominatedBy.includes(event.peerId))
+									existing.nominatedBy = [...existing.nominatedBy, event.peerId];
+							} else {
+								state.movies.push({ ...event.movie, nominatedBy: [event.peerId] });
+							}
 						}
 					}
 					break;

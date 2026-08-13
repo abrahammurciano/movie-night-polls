@@ -12,7 +12,7 @@ export interface PollSettings {
 export interface Movie {
 	id: string;
 	title: string;
-	nominatedBy: PeerId;
+	nominatedBy: PeerId[];
 	tmdbId?: number;
 	year?: number;
 	posterPath?: string;
