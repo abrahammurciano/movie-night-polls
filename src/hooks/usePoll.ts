@@ -45,10 +45,12 @@ export function usePoll(pollCode: string, displayName: string, isHost: boolean) 
 		if (!displayName) return;
 		const log = logRef.current;
 		if (isHost && !log.getEvents().some((e) => e.type === 'poll_created')) {
-			log.append({ type: 'poll_created', peerId: selfId, settings: { hostId: selfId }, timestamp: Date.now() });
+			const pollSettingsStr = localStorage.getItem(`pollSettings.${pollCode}`);
+			const pollSettings = pollSettingsStr ? JSON.parse(pollSettingsStr) : {};
+			log.append({ type: 'poll_created', peerId: selfId, settings: { hostId: selfId, ...pollSettings }, timestamp: Date.now() });
 		}
 		log.append({ type: 'peer_joined', peerId: selfId, name: displayName, timestamp: Date.now() });
-	}, [displayName, isHost]);
+	}, [displayName, isHost, pollCode]);
 
 	const nominateMovie = useCallback((movieData: MovieData) => {
 		const movie: Movie = { ...movieData, nominatedBy: selfId };

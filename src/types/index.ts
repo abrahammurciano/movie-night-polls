@@ -6,6 +6,7 @@ export type Phase = 'nominations' | 'voting' | 'results';
 
 export interface PollSettings {
 	hostId: PeerId;
+	maxNominationsPerUser?: number;
 }
 
 export interface Movie {

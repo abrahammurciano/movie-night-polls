@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { SettingsModal } from '@/components/SettingsModal';
 
 interface Props {
 	onJoin: (pollCode: string, displayName: string, isCreator: boolean) => void;
@@ -7,12 +8,23 @@ interface Props {
 	initialName?: string | null;
 }
 
+interface PollSettings {
+	maxNominationsPerUser: number;
+}
+
+const DEFAULT_SETTINGS: PollSettings = {
+	maxNominationsPerUser: 1,
+};
+
 export function HomePage({ onJoin, initialCode, initialName }: Props) {
 	const [name, setName] = useState(initialName ?? '');
 	const [code, setCode] = useState(initialCode ?? '');
+	const [settings, setSettings] = useState<PollSettings>(DEFAULT_SETTINGS);
+	const [showSettingsModal, setShowSettingsModal] = useState(false);
 
 	function handleCreate() {
 		const newCode = Math.random().toString(36).slice(2, 8).toUpperCase();
+		localStorage.setItem(`pollSettings.${newCode}`, JSON.stringify(settings));
 		onJoin(newCode, name.trim(), true);
 	}
 
@@ -70,27 +82,32 @@ export function HomePage({ onJoin, initialCode, initialName }: Props) {
 						/>
 					</div>
 
+					<div className="flex gap-2">
+						<Button
+							variant="secondary"
+						className="cursor-pointer rounded-xl font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] border-2 border-foreground/50"
+						style={{ height: '2.625rem' }}
+						disabled={!ready}
+						onClick={() => setShowSettingsModal(true)}
+					>
+						Options
+					</Button>
+
 					<Button
 						variant={code.trim() ? 'outline' : undefined}
-						className={`w-full rounded-xl font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] ${code.trim() ? 'border-border/50 font-medium text-foreground hover:bg-secondary hover:text-foreground' : 'glow-amber'}`}
+						className={`cursor-pointer flex-1 rounded-xl font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] ${code.trim() ? 'border-2 border-foreground/50 font-medium text-foreground hover:bg-secondary hover:text-foreground' : 'glow-amber'}`}
 						style={{ height: '2.625rem' }}
 						disabled={!ready}
 						onClick={handleCreate}
 					>
-						Create a poll
+						Create poll
 					</Button>
+				</div>
 
-					<div className="relative flex items-center gap-3 py-0.5">
-						<span className="h-px flex-1 bg-border" />
-						<span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/60">
-							or join
-						</span>
-						<span className="h-px flex-1 bg-border" />
-					</div>
-
-					<div className="space-y-1.5">
+				<div className="flex gap-2 items-end">
+					<div className="flex-1 space-y-1.5">
 						<label
-							className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground"
+							className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground block"
 							htmlFor="code"
 						>
 							Poll code
@@ -108,15 +125,23 @@ export function HomePage({ onJoin, initialCode, initialName }: Props) {
 
 					<Button
 						variant={code.trim() ? undefined : 'outline'}
-						className={`w-full rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] ${code.trim() ? 'font-semibold glow-amber' : 'border-border/50 font-medium text-foreground hover:bg-secondary hover:text-foreground'}`}
+						className={`cursor-pointer rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] ${code.trim() ? 'font-semibold glow-amber' : 'border-2 border-foreground/50 font-medium text-foreground hover:bg-secondary hover:text-foreground'}`}
 						style={{ height: '2.625rem' }}
 						disabled={!ready || code.trim().length === 0}
 						onClick={handleJoin}
 					>
-						Join poll
+						Join
 					</Button>
 				</div>
+				</div>
 			</div>
+
+			<SettingsModal
+				isOpen={showSettingsModal}
+				onClose={() => setShowSettingsModal(false)}
+				maxNominationsPerUser={settings.maxNominationsPerUser}
+				onSave={(newSettings) => setSettings(newSettings)}
+			/>
 
 			{/* Film strip decoration */}
 			<div className="mt-10 flex items-center gap-1.5 opacity-[0.12]">

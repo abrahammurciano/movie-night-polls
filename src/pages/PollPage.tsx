@@ -247,7 +247,7 @@ function GenreTagsSm({ genreIds }: { genreIds: number[] }) {
 }
 
 function ShareModal({ pollCode, onClose }: { pollCode: string; onClose: () => void }) {
-	const url = `${window.location.origin}${import.meta.env.BASE_URL}#/${pollCode}`;
+	const url = `${window.location.origin}/${pollCode}`;
 	const [copied, setCopied] = useState(false);
 	const canShare = typeof navigator.share === 'function';
 
@@ -321,6 +321,44 @@ function ShareModal({ pollCode, onClose }: { pollCode: string; onClose: () => vo
 						Share via…
 					</button>
 				)}
+			</div>
+		</div>
+	);
+}
+
+function NameEditModal({ current, onSave, onCancel }: { current: string; onSave: (name: string) => void; onCancel: () => void }) {
+	const [name, setName] = useState(current);
+	return (
+		<div
+			className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4"
+			style={{ background: 'oklch(0 0 0 / 0.6)', backdropFilter: 'blur(4px)' }}
+			onClick={onCancel}
+		>
+			<div
+				className="glass-card w-full md:max-w-sm rounded-t-2xl md:rounded-2xl p-6 flex flex-col gap-4"
+				onClick={(e) => e.stopPropagation()}
+			>
+				<p className="font-semibold text-base">Change your name</p>
+				<input
+					className="cinema-input"
+					value={name}
+					autoFocus
+					onChange={(e) => setName(e.target.value)}
+					onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) onSave(name.trim()); }}
+				/>
+				<div className="flex gap-3">
+					<button
+						className="flex-1 rounded-xl py-2.5 text-sm font-medium"
+						style={{ background: 'oklch(1 0 0 / 0.07)', color: 'oklch(1 0 0 / 0.7)' }}
+						onClick={onCancel}
+					>Cancel</button>
+					<button
+						className="flex-1 rounded-xl py-2.5 text-sm font-semibold disabled:opacity-30"
+						style={{ background: 'oklch(0.8 0.12 295)', color: 'oklch(0.17 0.03 295)' }}
+						disabled={!name.trim()}
+						onClick={() => name.trim() && onSave(name.trim())}
+					>Save</button>
+				</div>
 			</div>
 		</div>
 	);
@@ -454,6 +492,8 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 	const [pendingNomination, setPendingNomination] = useState<MovieData | null>(null);
 	const [shareOpen, setShareOpen] = useState(autoShare);
 	const [confirmPhase, setConfirmPhase] = useState(false);
+	const [nameEditOpen, setNameEditOpen] = useState(false);
+	const [localDisplayName, setLocalDisplayName] = useState(displayName);
 	const [rankingDragActive, setRankingDragActive] = useState(false);
 	const [nominationDragOver, setNominationDragOver] = useState(false);
 
@@ -465,7 +505,7 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 	const hasVoted = Boolean(state.ballots[selfId]);
 	const peerCount = Object.keys(state.peers).length;
 	const ballotCount = Object.keys(state.ballots).length;
-	const currentUserName = displayName || state.peers[selfId]?.name || 'Guest';
+	const currentUserName = localDisplayName || displayName || state.peers[selfId]?.name || 'Guest';
 	const statusText = pollStatusText(state.phase, peerCount, ballotCount);
 
 	function resetDrag() {
@@ -630,7 +670,11 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 				<div className="min-w-0">
 					<p className="text-sm font-semibold tracking-tight">🎬 Movie Night Polls</p>
 					<p className="truncate text-sm text-foreground/90">
-						Hello, <span className="font-bold" style={{ color: 'oklch(0.8 0.12 295)' }}>{currentUserName}</span>{isHost && <span className="ml-1">👑</span>}
+						Hello, <button
+							className="font-bold underline-offset-2 hover:underline transition-all"
+							style={{ color: 'oklch(0.8 0.12 295)' }}
+							onClick={() => setNameEditOpen(true)}
+						>{currentUserName}</button>{isHost && <span className="ml-1">👑</span>}
 					</p>
 				</div>
 				<button
@@ -678,8 +722,8 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 					<section
 						className="glass-card p-5 transition-colors"
 						style={{
-							borderColor: canRank && rankingDragActive && draggedId && !ranking.includes(draggedId) ? 'oklch(0.8 0.12 295 / 0.4)' : undefined,
-							background: canRank && rankingDragActive && draggedId && !ranking.includes(draggedId) ? 'oklch(0.8 0.12 295 / 0.06)' : undefined,
+							borderColor: canRank && draggedId && !ranking.includes(draggedId) ? 'oklch(0.8 0.12 295 / 0.4)' : undefined,
+							background: canRank && draggedId && !ranking.includes(draggedId) ? 'oklch(0.8 0.12 295 / 0.06)' : undefined,
 						}}
 						onDragOver={canRank ? handleRankingSectionDragOver : undefined}
 						onDragLeave={canRank ? handleRankingSectionDragLeave : undefined}
@@ -926,6 +970,18 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 
 			{shareOpen && (
 				<ShareModal pollCode={pollCode} onClose={() => setShareOpen(false)} />
+			)}
+
+			{nameEditOpen && (
+				<NameEditModal
+					current={currentUserName}
+					onSave={(name) => {
+						localStorage.setItem(storageKey('displayName'), name);
+						setLocalDisplayName(name);
+						setNameEditOpen(false);
+					}}
+					onCancel={() => setNameEditOpen(false)}
+				/>
 			)}
 
 			{!displayName && onSetName && (
