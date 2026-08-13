@@ -1,0 +1,126 @@
+/**
+ * Decentralized event log backed by a Yjs Y.Array.
+ *
+ * Each peer appends PollEvent objects locally; Yjs CRDTs guarantee
+ * eventual consistency across all connected peers.
+ *
+ * Trystero is used as the transport layer to sync Yjs updates.
+ */
+
+import * as Y from 'yjs';
+import type { Room } from 'trystero';
+import type { PollEvent, PollState, Phase } from '@/types';
+import { runInstantRunoff } from '@/lib/voting';
+
+const DOC_KEY = 'events';
+
+export interface EventLog {
+	doc: Y.Doc;
+	append: (event: PollEvent) => void;
+	getEvents: () => PollEvent[];
+	subscribe: (cb: (state: PollState) => void) => () => void;
+	connectRoom: (room: Room) => void;
+}
+
+export function createEventLog(persistKey?: string): EventLog {
+	const doc = new Y.Doc();
+	const events = doc.getArray<PollEvent>(DOC_KEY);
+
+	if (persistKey) {
+		const stored = localStorage.getItem(persistKey);
+		if (stored) {
+			try {
+				Y.applyUpdate(doc, Uint8Array.from(atob(stored), (c) => c.charCodeAt(0)));
+			} catch { /* ignore corrupt data */ }
+		}
+		doc.on('update', () => {
+			const state = Y.encodeStateAsUpdate(doc);
+			localStorage.setItem(persistKey, btoa(Array.from(state, (b) => String.fromCharCode(b)).join('')));
+		});
+	}
+
+	function append(event: PollEvent) {
+		doc.transact(() => {
+			events.push([event]);
+		});
+	}
+
+	function getEvents(): PollEvent[] {
+		return events.toArray();
+	}
+
+	function computeState(): PollState {
+		const state: PollState = {
+			phase: 'nominations' as Phase,
+			hostId: null,
+			settings: null,
+			peers: {},
+			movies: [],
+			ballots: {},
+			winner: null,
+		};
+
+		for (const event of events.toArray()) {
+			switch (event.type) {
+				case 'poll_created':
+					if (state.hostId === null) {
+						state.hostId = event.peerId;
+						state.settings = event.settings;
+					}
+					break;
+				case 'peer_joined':
+					state.peers[event.peerId] = { name: event.name };
+					break;
+				case 'nomination':
+					if (state.phase === 'nominations' && !state.movies.find((m) => m.nominatedBy === event.peerId))
+						state.movies.push(event.movie);
+					break;
+				case 'phase_advanced':
+					if (event.peerId === state.hostId) {
+						if (state.phase === 'nominations') state.phase = 'voting';
+						else if (state.phase === 'voting') {
+							state.phase = 'results';
+							state.winner = runInstantRunoff(state.ballots, state.movies);
+						}
+					}
+					break;
+				case 'ballot':
+					if (state.phase === 'voting')
+						state.ballots[event.peerId] = event.ranking;
+					break;
+			}
+		}
+
+		return state;
+	}
+
+	function subscribe(cb: (state: PollState) => void): () => void {
+		const handler = () => cb(computeState());
+		events.observe(handler);
+		return () => events.unobserve(handler);
+	}
+
+	function connectRoom(room: Room) {
+		const action = room.makeAction<Uint8Array>('yjsUpdate');
+
+		// Send our full state to newly connected peers
+		room.onPeerJoin = () => {
+			const update = Y.encodeStateAsUpdate(doc);
+			void action.send(update);
+		};
+
+		// Broadcast incremental updates to all peers
+		doc.on('update', (update: Uint8Array, origin: unknown) => {
+			if (origin !== 'remote') {
+				void action.send(update);
+			}
+		});
+
+		// Apply incoming updates
+		action.onMessage = (update) => {
+			Y.applyUpdate(doc, update, 'remote');
+		};
+	}
+
+	return { doc, append, getEvents, subscribe, connectRoom };
+}
