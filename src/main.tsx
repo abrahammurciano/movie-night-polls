@@ -4,6 +4,10 @@ import { scrollBehaviourDragImageTranslateOverride } from 'mobile-drag-drop/scro
 import './index.css'
 import App from './App.tsx'
 
-polyfill({ holdToDrag: 200, dragImageTranslateOverride: scrollBehaviourDragImageTranslateOverride })
+polyfill({
+	holdToDrag: 200,
+	dragImageTranslateOverride: scrollBehaviourDragImageTranslateOverride,
+	forceApply: /Android.+Firefox/i.test(navigator.userAgent),
+})
 
 createRoot(document.getElementById('root')!).render(<App />)

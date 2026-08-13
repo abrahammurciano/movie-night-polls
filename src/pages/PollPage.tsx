@@ -531,7 +531,11 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 		setRanking((prev) => prev.filter((x) => x !== id));
 	}
 
-	function handleDragStart(id: string) {
+	function handleDragStart(e: React.DragEvent, id: string) {
+		e.dataTransfer.effectAllowed = 'move';
+		try {
+			e.dataTransfer.setData('text/plain', id);
+		} catch {}
 		const currentRanking = ranking;
 		dragStartTimeout.current = setTimeout(() => {
 			dragStartTimeout.current = null;
@@ -837,7 +841,7 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 													cursor: canRank ? 'grab' : 'default',
 												}}
 												draggable={canRank}
-												onDragStart={canRank ? () => handleDragStart(id) : undefined}
+												onDragStart={canRank ? (e) => handleDragStart(e, id) : undefined}
 												onDragOver={canRank ? (e) => handleRankingItemDragOver(e, id) : undefined}
 												onDragEnd={canRank ? resetDrag : undefined}
 											>
@@ -941,7 +945,7 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 									}}
 									draggable={canRank}
 									onClick={canRank ? () => addToRanking(movie.id) : undefined}
-									onDragStart={canRank ? () => handleDragStart(movie.id) : undefined}
+									onDragStart={canRank ? (e) => handleDragStart(e, movie.id) : undefined}
 									onDragEnd={canRank ? resetDrag : undefined}
 								>
 									<span className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-xs font-bold opacity-40 select-none">☰</span>
