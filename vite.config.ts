@@ -4,7 +4,9 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
-	base: process.env.NODE_ENV === 'production' ? '/movie-night-polls/' : '/',
+	base:
+		process.env.VITE_BASE_PATH ??
+		(process.env.NODE_ENV === 'production' ? '/movie-night-polls/' : '/'),
 	plugins: [react(), tailwindcss()],
 	resolve: {
 		alias: {
