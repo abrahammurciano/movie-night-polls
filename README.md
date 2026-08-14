@@ -34,6 +34,7 @@ The Yjs document is also persisted to `localStorage`, so polls survive a page re
 ```sh
 npm install
 npm run dev
+npm run test
 ```
 
 To simulate multiple participants in one browser, open tabs with `?session=1`, `?session=2`, etc.
