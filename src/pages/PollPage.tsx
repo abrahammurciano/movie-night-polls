@@ -8,6 +8,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import type { Movie, PeerId } from '@/types';
 import type { Phase } from '@/types';
 import { storageKey } from '@/lib/identity';
+import { buildInfo } from '@/lib/buildInfo';
 
 function nominatorNames(nominatedBy: PeerId[], peers: Record<PeerId, { name: string }>): string {
 	return nominatedBy.map((id) => peers[id]?.name ?? '?').join(' & ');
@@ -718,6 +719,9 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 				>
 					← Back to home
 				</button>
+				<p className="mt-4 text-[10px] text-muted-foreground/70">
+					{buildInfo.displayVersion}
+				</p>
 			</div>
 		);
 	}
@@ -737,7 +741,14 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 				}}
 			>
 				<div className="min-w-0">
-					<p className="text-sm font-semibold tracking-tight">🎬 Movie Night Polls</p>
+					<div className="flex items-center gap-2">
+						<p className="text-sm font-semibold tracking-tight">🎬 Movie Night Polls</p>
+						{buildInfo.isDevPreview && (
+							<span className="rounded-full border border-amber-300/40 bg-amber-300/10 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-amber-300">
+								DEV #{buildInfo.devPreviewId}
+							</span>
+						)}
+					</div>
 					<p className="truncate text-sm text-foreground/90">
 						Hello, <button
 							className="font-bold underline-offset-2 hover:underline transition-all"
@@ -1011,6 +1022,9 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 						End voting &amp; reveal results
 					</Button>
 				)}
+				<p className="mt-4 text-center text-[10px] text-muted-foreground/70">
+					{buildInfo.displayVersion}
+				</p>
 			</footer>
 
 			<MovieDetailsModal

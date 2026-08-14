@@ -8,6 +8,8 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  pages: write
+  id-token: write
 
 jobs:
   checks:
@@ -22,12 +24,15 @@ jobs:
       - run: npm run lint
       - run: npm run test
       - run: npm run build
+        env:
+          VITE_APP_VERSION: ${{ github.sha }}
 
-  dev-build:
+  dev-preview:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     env:
-      DEV_PREVIEW_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/dev/${{ github.event.pull_request.number }}/
+      DEV_PREVIEW_BASE_PATH: /${{ github.event.repository.name }}/dev/${{ github.event.pull_request.number }}/
+      DEV_PREVIEW_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/dev/${{ github.event.pull_request.number }}/index.html
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,12 +43,29 @@ jobs:
       - run: npm run build
         env:
           VITE_BASE_PATH: /${{ github.event.repository.name }}/dev/${{ github.event.pull_request.number }}/
+          VITE_APP_VERSION: ${{ github.sha }}
+      - name: Prepare preview artifact path
+        run: |
+          mkdir -p "preview/dev/${{ github.event.pull_request.number }}"
+          cp -R dist/* "preview/dev/${{ github.event.pull_request.number }}/"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          artifact_name: dev-preview-${{ github.event.pull_request.number }}
+          path: preview
+      - name: Deploy preview artifact
+        id: deploy
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: dev-preview-${{ github.event.pull_request.number }}
+          preview: true
       - name: Comment dev preview URL
         uses: actions/github-script@v7
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.page_url }}
         with:
           script: |
             const marker = '<!-- dev-preview-url -->'
-            const body = `${marker}\n🚧 Dev preview URL for this PR:\n${process.env.DEV_PREVIEW_URL}`
+            const body = `${marker}\n🚧 Dev preview URL for this PR:\n${process.env.DEV_PREVIEW_URL}\n\nGitHub Pages deployment URL:\n${process.env.DEPLOYMENT_URL}`
             const {owner, repo} = context.repo
             const issue_number = context.issue.number
 

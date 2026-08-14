@@ -26,6 +26,7 @@ jobs:
       - run: npm run build
         env:
           VITE_BASE_PATH: /movie-night-polls/
+          VITE_APP_VERSION: ${{ github.sha }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

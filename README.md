@@ -42,7 +42,7 @@ To simulate multiple participants in one browser, open tabs with `?session=1`, `
 ## Deployment
 
 Pushes to `main` automatically deploy to GitHub Pages via the included Actions workflow.
-Pull requests also run a deployment-equivalent build in CI with `VITE_BASE_PATH=/movie-night-polls/dev/<pr-number>/`, and CI comments the preview URL on the PR.
+Pull requests build and deploy a preview to `.../movie-night-polls/dev/<pr-number>/index.html`, and CI comments the URL on the PR.
 
 To deploy manually:
 

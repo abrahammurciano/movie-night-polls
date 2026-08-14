@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { SettingsModal } from '@/components/SettingsModal';
+import { buildInfo } from '@/lib/buildInfo';
 
 interface Props {
 	onJoin: (pollCode: string, displayName: string, isCreator: boolean) => void;
@@ -56,6 +57,11 @@ export function HomePage({ onJoin, initialCode, initialName }: Props) {
 					>
 						Movie Night Polls
 					</h1>
+					{buildInfo.isDevPreview && (
+						<p className="mt-1 text-xs font-semibold tracking-wider text-amber-300">
+							DEV PREVIEW · PR #{buildInfo.devPreviewId}
+						</p>
+					)}
 					<p className="mt-1.5 text-sm text-muted-foreground">
 						Ranked choice voting &middot; peer-to-peer &middot; no account needed
 					</p>
@@ -147,6 +153,9 @@ export function HomePage({ onJoin, initialCode, initialName }: Props) {
 					/>
 				))}
 			</div>
+			<p className="mt-4 text-[10px] text-muted-foreground/70">
+				{buildInfo.displayVersion}
+			</p>
 		</div>
 	);
 }
