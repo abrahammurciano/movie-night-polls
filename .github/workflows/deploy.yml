@@ -3,30 +3,62 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 permissions:
   contents: read
   pages: write
   id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
+  pull-requests: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npm run build
+
+      - name: Build main
+        run: |
+          npm ci
+          npm run build
+          mkdir -p combined
+          cp -r dist/. combined/
+        env:
+          VITE_BASE_PATH: /movie-night-polls/
+          VITE_APP_VERSION: ${{ github.sha }}
+
+      - name: Build open PR branches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr list --state open --json number,headRefName -q '.[] | "\(.number) \(.headRefName)"' > prs.txt
+          while read -r number branch; do
+            [ -z "$number" ] && continue
+            safe_name=$(echo "$branch" | tr '/' '-')
+            git fetch origin "pull/$number/head:pr-$number"
+            git checkout "pr-$number"
+            npm ci
+            VITE_BASE_PATH="/movie-night-polls/branch/$safe_name/" VITE_APP_VERSION="${{ github.sha }}" npm run build
+            mkdir -p "combined/branch/$safe_name"
+            cp -r dist/. "combined/branch/$safe_name/"
+            git checkout main
+          done < prs.txt
+
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: combined
 
   deploy:
     needs: build
