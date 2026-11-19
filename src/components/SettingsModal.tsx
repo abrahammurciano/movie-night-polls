@@ -1,22 +1,19 @@
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 
 interface Props {
 	isOpen: boolean;
 	onClose: () => void;
 	maxNominationsPerUser: number;
-	onSave: (settings: { maxNominationsPerUser: number }) => void;
+	onChange: (settings: { maxNominationsPerUser: number }) => void;
 }
 
-export function SettingsModal({ isOpen, onClose, maxNominationsPerUser, onSave }: Props) {
-	const [localMaxNominations, setLocalMaxNominations] = useState(String(maxNominationsPerUser));
-
+export function SettingsModal({ isOpen, onClose, maxNominationsPerUser, onChange }: Props) {
 	if (!isOpen) return null;
 
-	function handleSave() {
-		const parsed = parseInt(localMaxNominations);
-		onSave({ maxNominationsPerUser: Math.min(20, Math.max(1, isNaN(parsed) ? 1 : parsed)) });
-		onClose();
+	function handleChange(value: string) {
+		const parsed = parseInt(value);
+		if (isNaN(parsed)) return;
+		onChange({ maxNominationsPerUser: Math.min(20, Math.max(1, parsed)) });
 	}
 
 	return (
@@ -46,31 +43,25 @@ export function SettingsModal({ isOpen, onClose, maxNominationsPerUser, onSave }
 							min="1"
 							max="20"
 							className="cinema-input"
-							value={localMaxNominations}
-							onChange={(e) => setLocalMaxNominations(e.target.value)}
+							value={maxNominationsPerUser}
+							onChange={(e) => handleChange(e.target.value)}
 						/>
 						<p className="text-[11px] text-muted-foreground">
 							How many movies can each person nominate?
 						</p>
 					</div>
 
-					<div className="flex gap-3 pt-2">
-						<Button
-							variant="outline"
-							className="flex-1 rounded-xl font-semibold"
-							style={{ height: '2.625rem' }}
-							onClick={onClose}
-						>
-							Cancel
-						</Button>
-						<Button
-							className="flex-1 rounded-xl font-semibold glow-amber"
-							style={{ height: '2.625rem' }}
-							onClick={handleSave}
-						>
-							Save
-						</Button>
-					</div>
+					<p className="text-[11px] text-muted-foreground/70">
+						Changes are saved automatically and become the defaults for your next polls.
+					</p>
+
+					<Button
+						className="w-full rounded-xl font-semibold glow-amber"
+						style={{ height: '2.625rem' }}
+						onClick={onClose}
+					>
+						Done
+					</Button>
 				</div>
 			</div>
 		</div>
