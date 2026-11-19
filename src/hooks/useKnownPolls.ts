@@ -67,4 +67,4 @@ export function useKnownPolls(): { summaries: PollSummary[]; dismiss: (code: str
 	}
 
 	return { summaries, dismiss };
-                     }
+}
