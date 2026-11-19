@@ -731,7 +731,7 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 			<header
 				className="sticky top-0 z-10 flex items-center justify-between px-5 py-4"
 				style={{
-					background: 'oklch(0.09 0.014 265 / 0.85)',
+					background: 'oklch(0.115 0.016 265 / 0.85)',
 					backdropFilter: 'blur(16px)',
 					borderBottom: '1px solid oklch(1 0 0 / 7%)',
 				}}

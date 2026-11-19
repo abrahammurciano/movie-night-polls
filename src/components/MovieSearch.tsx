@@ -118,7 +118,7 @@ function TmdbSearch({ onSelect, disabled }: Props) {
 				<ul
 					className="absolute left-0 right-0 top-full z-30 mt-1.5 overflow-hidden rounded-xl shadow-2xl"
 					style={{
-						background: 'oklch(0.135 0.016 265)',
+						background: 'oklch(0.16 0.018 265)',
 						border: '1px solid oklch(1 0 0 / 11%)',
 					}}
 				>

@@ -9,17 +9,17 @@
 	color-scheme: dark;
 
 	/* ── Cinémathèque palette ───────────────────────── */
-	--background: oklch(0.09 0.014 265);
+	--background: oklch(0.115 0.016 265);
 	--foreground: oklch(0.93 0.008 270);
-	--card: oklch(0.125 0.016 265);
+	--card: oklch(0.15 0.018 265);
 	--card-foreground: oklch(0.93 0.008 270);
-	--popover: oklch(0.125 0.016 265);
+	--popover: oklch(0.15 0.018 265);
 	--popover-foreground: oklch(0.93 0.008 270);
 	--primary: oklch(0.8 0.12 295);
 	--primary-foreground: oklch(0.17 0.03 295);
-	--secondary: oklch(0.17 0.019 265);
+	--secondary: oklch(0.195 0.021 265);
 	--secondary-foreground: oklch(0.93 0.008 270);
-	--muted: oklch(0.17 0.019 265);
+	--muted: oklch(0.195 0.021 265);
 	--muted-foreground: oklch(0.7 0.018 270);
 	--accent: oklch(0.8 0.12 295);
 	--accent-foreground: oklch(0.17 0.03 295);
@@ -28,11 +28,11 @@
 	--input: oklch(1 0 0 / 7%);
 	--ring: oklch(0.8 0.12 295);
 	--radius: 0.75rem;
-	--sidebar: oklch(0.125 0.016 265);
+	--sidebar: oklch(0.15 0.018 265);
 	--sidebar-foreground: oklch(0.93 0.008 270);
 	--sidebar-primary: oklch(0.8 0.12 295);
 	--sidebar-primary-foreground: oklch(0.17 0.03 295);
-	--sidebar-accent: oklch(0.17 0.019 265);
+	--sidebar-accent: oklch(0.195 0.021 265);
 	--sidebar-accent-foreground: oklch(0.93 0.008 270);
 	--sidebar-border: oklch(1 0 0 / 9%);
 	--sidebar-ring: oklch(0.8 0.12 295);
@@ -95,7 +95,7 @@
 		margin: 0;
 		min-height: 100svh;
 		background:
-			radial-gradient(ellipse 110% 45% at 50% -8%, oklch(0.2 0.06 270 / 0.65) 0%, transparent 65%),
+			radial-gradient(ellipse 110% 45% at 50% -8%, oklch(0.23 0.065 270 / 0.65) 0%, transparent 65%),
 			var(--background);
 		background-attachment: fixed;
 	}
