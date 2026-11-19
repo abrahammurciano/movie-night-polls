@@ -2,9 +2,10 @@ import { usePoll } from '@/hooks/usePoll';
 import { Button } from '@/components/ui/button';
 import { MovieSearch, type MovieData } from '@/components/MovieSearch';
 import { VoteChart } from '@/components/VoteChart';
-import { posterUrl, getGenreNames } from '@/lib/tmdb';
+import { posterUrl, getGenreNames, getImdbId } from '@/lib/tmdb';
 import { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import type { Movie, PeerId } from '@/types';
 import type { Phase } from '@/types';
 import { storageKey } from '@/lib/identity';
@@ -57,19 +58,19 @@ function RankBanner({ rank }: { rank: number }) {
 	return (
 		<div
 			className="absolute top-0 left-0 overflow-hidden rounded-tl-xl pointer-events-none"
-			style={{ width: '56px', height: '56px' }}
+			style={{ width: '44px', height: '44px' }}
 		>
 			<div
 				className="absolute text-center font-bold leading-none whitespace-nowrap"
 				style={{
 					background: 'oklch(0.8 0.12 295 / 0.72)',
 					color: 'oklch(0.17 0.03 295)',
-					fontSize: '12px',
+					fontSize: '10px',
 					letterSpacing: '0.03em',
-					width: '72px',
+					width: '60px',
 					padding: '2px 0',
-					top: '12px',
-					left: '-18px',
+					top: '10px',
+					left: '-16px',
 					transform: 'rotate(-45deg)',
 				}}
 			>
@@ -97,12 +98,20 @@ interface MovieDetailsModalProps {
 
 function MovieDetailsModal({ movie, onClose, peerName, onNominate, userNominationCount = 0, maxNominationsPerUser = 1 }: MovieDetailsModalProps) {
 	const [genres, setGenres] = useState<string[]>([]);
+	const [imdbId, setImdbId] = useState<string | null>(null);
 
 	useEffect(() => {
 		if (movie?.genreIds) {
 			getGenreNames(movie.genreIds).then(setGenres);
 		}
 	}, [movie?.genreIds]);
+
+	useEffect(() => {
+		setImdbId(null);
+		if (movie?.tmdbId) {
+			getImdbId(movie.tmdbId).then(setImdbId);
+		}
+	}, [movie?.tmdbId]);
 
 	if (!movie) return null;
 
@@ -180,6 +189,18 @@ function MovieDetailsModal({ movie, onClose, peerName, onNominate, userNominatio
 								</span>
 								<span className="text-muted-foreground">/10</span>
 							</p>
+						)}
+
+						{imdbId && (
+							<a
+								href={`https://www.imdb.com/title/${imdbId}/`}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="mt-2 inline-flex items-center gap-1 text-sm font-medium hover:underline"
+								style={{ color: 'oklch(0.8 0.12 295)' }}
+							>
+								View on IMDb ↗
+							</a>
 						)}
 
 						{genres.length > 0 && (
@@ -535,6 +556,18 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 		setRanking((prev) => prev.filter((x) => x !== id));
 	}
 
+	function moveInRanking(id: string, delta: -1 | 1) {
+		setRanking((prev) => {
+			const idx = prev.indexOf(id);
+			if (idx === -1) return prev;
+			const next = idx + delta;
+			if (next < 0 || next >= prev.length) return prev;
+			const copy = [...prev];
+			[copy[idx], copy[next]] = [copy[next], copy[idx]];
+			return copy;
+		});
+	}
+
 	function handleDragStart(e: React.DragEvent, id: string) {
 		e.dataTransfer.effectAllowed = 'move';
 		try {
@@ -776,6 +809,21 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 			</div>
 
 			<main className="flex flex-1 flex-col gap-4 px-5 py-5">
+				{/* Instructions — prominent phase guidance at the top of the page */}
+				<section
+					className="glass-card p-4"
+					style={{
+						border: '1px solid oklch(0.8 0.12 295 / 0.4)',
+						background: 'oklch(0.8 0.12 295 / 0.09)',
+					}}
+				>
+					<p className="text-center text-sm font-medium leading-relaxed">
+						{state.phase === 'nominations'
+							? '🎥 Nominate the movies you’d like to watch. Once everyone’s picks are in, the host will start the vote.'
+							: '🗳️ Rank all the movies in order of preference — most wanted at the top — then submit your ballot.'}
+					</p>
+				</section>
+
 				{/* Nominate — only during nominations phase, only until user has reached max nominations */}
 				{state.phase === 'nominations' && canNominate && (
 					<section className="glass-card p-5 relative z-[1]">
@@ -850,7 +898,31 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 												onDragEnd={canRank ? resetDrag : undefined}
 											>
 												<RankBanner rank={rankMap.get(id) ?? 1} />
-												<span className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-xs font-bold opacity-40 select-none">☰</span>
+												{canRank ? (
+													<div className="flex flex-shrink-0 flex-col items-center justify-center gap-0.5">
+														<button
+															className="rounded p-0.5 opacity-50 transition-opacity hover:opacity-100 disabled:opacity-15"
+															onClick={(e) => { e.stopPropagation(); moveInRanking(id, -1); }}
+															disabled={ranking.indexOf(id) <= 0}
+															title="Move up"
+															aria-label="Move up"
+														>
+															<ChevronUp className="h-4 w-4" />
+														</button>
+														<span className="flex h-5 w-5 items-center justify-center text-xs font-bold opacity-40 select-none">☰</span>
+														<button
+															className="rounded p-0.5 opacity-50 transition-opacity hover:opacity-100 disabled:opacity-15"
+															onClick={(e) => { e.stopPropagation(); moveInRanking(id, 1); }}
+															disabled={ranking.indexOf(id) === -1 || ranking.indexOf(id) >= ranking.length - 1}
+															title="Move down"
+															aria-label="Move down"
+														>
+															<ChevronDown className="h-4 w-4" />
+														</button>
+													</div>
+												) : (
+													<span className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-xs font-bold opacity-40 select-none">☰</span>
+												)}
 												<Poster movie={movie} size="sm" />
 												<div className="min-w-0 flex-1">
 													<p className="line-clamp-2 text-sm font-medium leading-tight pr-5">{movie.title}</p>
@@ -878,7 +950,7 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 												</div>
 												{canRank && (
 													<button
-														className="absolute top-2 right-2 opacity-25 hover:opacity-80 transition-opacity text-xs leading-none"
+														className="absolute top-1.5 right-1.5 rounded-lg p-1.5 opacity-40 hover:opacity-90 transition-opacity text-base leading-none"
 														onClick={(e) => { e.stopPropagation(); removeFromRanking(id); }}
 														title="Remove from ranking"
 													>✕</button>
@@ -1063,4 +1135,4 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 			)}
 		</div>
 	);
-}
+								}
