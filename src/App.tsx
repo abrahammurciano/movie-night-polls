@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { HomePage } from '@/pages/HomePage';
 import { PollPage } from '@/pages/PollPage';
 import { storageKey, selfId } from '@/lib/identity';
+import { rememberPoll } from '@/lib/knownPolls';
 
 interface Session {
 	pollCode: string;
@@ -33,6 +34,10 @@ function App() {
 		const code = codeFromPath();
 		return code ? { pollCode: code, displayName: readStoredDisplayName(), autoShare: false, isHost: isStoredHost(code) } : null;
 	});
+
+	useEffect(() => {
+		if (session) rememberPoll(session.pollCode);
+	}, [session]);
 
 	useEffect(() => {
 		const onPop = () => {
