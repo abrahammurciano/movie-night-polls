@@ -1082,5 +1082,4 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 				<NamePromptOverlay onSubmit={onSetName} />
 			)}
 		</div>
-	);
-				}
+}
