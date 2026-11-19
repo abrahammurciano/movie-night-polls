@@ -7,6 +7,8 @@ export type Phase = 'nominations' | 'voting' | 'results';
 export interface PollSettings {
 	hostId: PeerId;
 	maxNominationsPerUser?: number;
+	/** Minutes after poll creation when voting closes automatically. Defaults to 1 week. */
+	deadlineMinutes?: number;
 }
 
 export interface Movie {
@@ -27,12 +29,14 @@ export type PollEvent =
 	| { type: 'peer_joined'; peerId: PeerId; name: string; timestamp: number }
 	| { type: 'nomination'; peerId: PeerId; movie: Movie; timestamp: number }
 	| { type: 'phase_advanced'; peerId: PeerId; timestamp: number }
+	| { type: 'peer_revoked'; peerId: PeerId; revokedPeerId: PeerId; timestamp: number }
 	| { type: 'ballot'; peerId: PeerId; ranking: string[]; timestamp: number };
 
 /** Reduced state computed from the event log */
 export interface PollState {
 	phase: Phase;
 	hostId: PeerId | null;
+	createdAt: number | null;
 	settings: PollSettings | null;
 	peers: Record<PeerId, { name: string }>;
 	movies: Movie[];
