@@ -80,4 +80,4 @@ export function VoteChart({ movies, tally, eliminatedVotes, label = 'Final round
 			</div>
 		</div>
 	);
-							}
+}
