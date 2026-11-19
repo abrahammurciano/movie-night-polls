@@ -1135,4 +1135,4 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 			)}
 		</div>
 	);
-								}
+}
