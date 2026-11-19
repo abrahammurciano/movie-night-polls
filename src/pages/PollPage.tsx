@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { MovieSearch, type MovieData } from '@/components/MovieSearch';
 import { VoteChart } from '@/components/VoteChart';
 import { posterUrl, getGenreNames, getImdbId } from '@/lib/tmdb';
+import { VOTING_METHODS } from '@/lib/voting';
 import { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
@@ -661,6 +662,7 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 
 	if (state.phase === 'results') {
 		const isTie = state.winner.length > 1;
+		const votingMethod = state.settings?.votingMethod ?? 'irv';
 
 		return (
 			<div className="flex min-h-svh flex-col items-center justify-center gap-5 px-6 py-14 text-center">
@@ -742,6 +744,9 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 									>
 										{state.winner[0].title}
 									</h2>
+									<p className="mt-1 text-xs text-muted-foreground">
+										Decided by {VOTING_METHODS[votingMethod].name}
+									</p>
 									{state.winner[0].year && (
 										<p className="mt-1 text-sm text-muted-foreground">{state.winner[0].year}</p>
 									)}
@@ -762,7 +767,12 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 
 {state.movies.length > 0 && (
 				<div className="w-full max-w-xs rounded-xl p-4" style={{ background: 'oklch(1 0 0 / 0.04)', border: '1px solid oklch(1 0 0 / 0.08)' }}>
-					<VoteChart movies={state.movies} tally={state.finalTally} eliminatedVotes={state.eliminatedVotes} />
+					<VoteChart
+						movies={state.movies}
+						tally={state.finalTally}
+						eliminatedVotes={state.eliminatedVotes}
+						label={votingMethod === 'irv' ? undefined : `${VOTING_METHODS[votingMethod].name} scores`}
+					/>
 					</div>
 				)}
 
