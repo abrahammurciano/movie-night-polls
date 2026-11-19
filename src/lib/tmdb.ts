@@ -59,3 +59,17 @@ export async function searchMovies(query: string): Promise<TmdbMovie[]> {
 		return [];
 	}
 }
+
+/** Fetch the IMDb id (e.g. "tt0133093") for a TMDB movie, if one exists. */
+export async function getImdbId(tmdbId: number): Promise<string | null> {
+	try {
+		const url = new URL(`${BASE_URL}/movie/${tmdbId}/external_ids`);
+		url.searchParams.set('api_key', API_KEY);
+		const res = await fetch(url.toString());
+		if (!res.ok) return null;
+		const data = (await res.json()) as { imdb_id?: string | null };
+		return data.imdb_id ?? null;
+	} catch {
+		return null;
+	}
+}
