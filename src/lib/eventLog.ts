@@ -54,6 +54,7 @@ export function createEventLog(persistKey?: string): EventLog {
 		const state: PollState = {
 			phase: 'nominations' as Phase,
 			hostId: null,
+			createdAt: null,
 			settings: null,
 			peers: {},
 			movies: [],
@@ -69,6 +70,7 @@ export function createEventLog(persistKey?: string): EventLog {
 					if (state.hostId === null) {
 						state.hostId = event.peerId;
 						state.settings = event.settings;
+						state.createdAt = event.timestamp;
 					}
 					break;
 				case 'peer_joined':
@@ -99,6 +101,17 @@ export function createEventLog(persistKey?: string): EventLog {
 							const result = runInstantRunoff(state.ballots, state.movies);
 							state.winner = result.winners;
 							state.finalTally = result.finalTally; state.eliminatedVotes = result.eliminatedVotes;
+						}
+					}
+					break;
+				case 'peer_revoked':
+					if (event.peerId === state.hostId) {
+						delete state.peers[event.revokedPeerId];
+						delete state.ballots[event.revokedPeerId];
+						for (let i = state.movies.length - 1; i >= 0; i--) {
+							const movie = state.movies[i];
+							movie.nominatedBy = movie.nominatedBy.filter((id) => id !== event.revokedPeerId);
+							if (movie.nominatedBy.length === 0) state.movies.splice(i, 1);
 						}
 					}
 					break;
