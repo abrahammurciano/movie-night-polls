@@ -2,6 +2,8 @@
 
 export type PeerId = string;
 
+export type VotingMethod = 'irv' | 'borda' | 'schulze' | 'ranked-pairs';
+
 export type Phase = 'nominations' | 'voting' | 'results';
 
 export interface PollSettings {
@@ -9,6 +11,8 @@ export interface PollSettings {
 	maxNominationsPerUser?: number;
 	/** Minutes after poll creation when voting closes automatically. Defaults to 1 week. */
 	deadlineMinutes?: number;
+	/** Method used to decide the winner. Defaults to instant runoff. */
+	votingMethod?: VotingMethod;
 }
 
 export interface Movie {
