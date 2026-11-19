@@ -155,4 +155,4 @@ export function createEventLog(persistKey?: string): EventLog {
 	}
 
 	return { doc, append, getEvents, getState: computeState, subscribe, connectRoom };
-	}
+}
