@@ -6,7 +6,7 @@ import { posterUrl, getGenreNames, getImdbId } from '@/lib/tmdb';
 import { VOTING_METHODS } from '@/lib/voting';
 import { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp, ChevronDown, Users } from 'lucide-react';
 import type { Movie, PeerId } from '@/types';
 import type { Phase } from '@/types';
 import { storageKey } from '@/lib/identity';
@@ -81,11 +81,27 @@ function RankBanner({ rank }: { rank: number }) {
 	);
 }
 
-function pollStatusText(phase: Phase, peerCount: number, ballotCount: number): string {
+function pollStatusText(phase: Phase, peerCount: number, ballotCount: number, nominationCount: number): string {
 	if (peerCount <= 1) return "You're the only one here";
-	if (phase === 'nominations') return `${peerCount} joined · nominating`;
+	if (phase === 'nominations') return `${peerCount} joined · ${nominationCount} nominated`;
 	if (phase === 'voting') return `${peerCount} joined · ${ballotCount} voted`;
 	return `${peerCount} joined · voting closed`;
+}
+
+/** Whether a participant has done the action the current stage asks of them, plus its label. */
+function participantStatus(
+	phase: Phase,
+	peerId: PeerId,
+	movies: Movie[],
+	ballots: Record<PeerId, string[]>,
+): { done: boolean; label: string } {
+	if (phase === 'nominations') {
+		const nominated = movies.some((m) => m.nominatedBy.includes(peerId));
+		return nominated ? { done: true, label: 'Nominated' } : { done: false, label: 'Not nominated yet' };
+	}
+	const voted = Boolean(ballots[peerId]);
+	if (phase === 'voting') return voted ? { done: true, label: 'Voted' } : { done: false, label: 'Not voted yet' };
+	return voted ? { done: true, label: 'Voted' } : { done: false, label: 'Did not vote' };
 }
 
 interface MovieDetailsModalProps {
@@ -505,6 +521,132 @@ function NamePromptOverlay({ onSubmit, isCreator = false }: { onSubmit: (name: s
 	);
 }
 
+interface PeopleSheetProps {
+	peers: Record<PeerId, { name: string }>;
+	hostId: PeerId | null;
+	selfId: PeerId;
+	isHost: boolean;
+	phase: Phase;
+	movies: Movie[];
+	ballots: Record<PeerId, string[]>;
+	confirmRevoke: PeerId | null;
+	onConfirmRevoke: (id: PeerId | null) => void;
+	onRevoke: (id: PeerId) => void;
+	onClose: () => void;
+}
+
+function PeopleSheet({ peers, hostId, selfId, isHost, phase, movies, ballots, confirmRevoke, onConfirmRevoke, onRevoke, onClose }: PeopleSheetProps) {
+	const entries = Object.entries(peers);
+	const sheetRef = useRef<HTMLDivElement>(null);
+	const closeRef = useRef(onClose);
+	closeRef.current = onClose;
+	useEffect(() => {
+		const previousFocus = document.activeElement as HTMLElement | null;
+		const previousOverflow = document.body.style.overflow;
+		document.body.style.overflow = 'hidden';
+		const sheet = sheetRef.current;
+		sheet?.querySelector<HTMLButtonElement>('button')?.focus();
+		function handleKey(event: KeyboardEvent) {
+			if (event.key === 'Escape') { event.preventDefault(); closeRef.current(); }
+			if (event.key !== 'Tab' || !sheet) return;
+			const buttons = Array.from(sheet.querySelectorAll<HTMLButtonElement>('button:not([disabled])'));
+			const first = buttons[0], last = buttons[buttons.length - 1];
+			if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+			else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+		}
+		document.addEventListener('keydown', handleKey);
+		return () => {
+			document.body.style.overflow = previousOverflow;
+			document.removeEventListener('keydown', handleKey);
+			previousFocus?.focus();
+		};
+	}, []);
+	return (
+		<div
+			className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4"
+			style={{ background: 'oklch(0 0 0 / 0.6)', backdropFilter: 'blur(4px)' }}
+			onClick={onClose}
+		>
+			<div
+				ref={sheetRef}
+				className="glass-card w-full md:max-w-sm max-h-[85svh] rounded-t-2xl md:rounded-2xl p-6 flex flex-col gap-4"
+				onClick={(e) => e.stopPropagation()}
+				role="dialog"
+				aria-modal="true"
+				aria-label="People in this poll"
+			>
+				<div className="flex items-center justify-between">
+					<p className="font-semibold text-base">People — {entries.length}</p>
+					<button
+						className="opacity-50 transition-opacity hover:opacity-100"
+						onClick={onClose}
+						aria-label="Close"
+					>
+						✕
+					</button>
+				</div>
+				<ul className="flex min-h-0 flex-col gap-2 overflow-y-auto">
+					{entries.map(([id, peer]) => {
+						const { done, label } = participantStatus(phase, id, movies, ballots);
+						const colour = done ? 'oklch(0.75 0.16 160)' : 'oklch(0.72 0.01 265)';
+						return (
+							<li
+								key={id}
+								className="flex shrink-0 items-center gap-3 rounded-xl px-3 py-2.5"
+								style={{
+									background: 'oklch(1 0 0 / 0.05)',
+									border: `1px solid ${done ? 'oklch(0.75 0.16 160 / 0.45)' : 'oklch(1 0 0 / 0.09)'}`,
+								}}
+							>
+								<span
+									className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+									style={{ background: colour }}
+									aria-hidden="true"
+								/>
+								<span className="min-w-0 flex-1">
+									<span className="block break-words text-sm font-medium">
+										{peer.name}
+										{id === selfId ? ' (you)' : ''}
+										{id === hostId ? ' 👑' : ''}
+									</span>
+									<span className="block text-xs font-medium" style={{ color: colour }}>
+										{label}
+									</span>
+								</span>
+								{isHost && id !== selfId && (
+									confirmRevoke === id ? (
+										<span className="flex items-center gap-1.5 text-xs">
+											<button
+												className="font-semibold"
+												style={{ color: 'oklch(0.62 0.22 25)' }}
+												onClick={() => { onRevoke(id); onConfirmRevoke(null); }}
+											>
+												Remove
+											</button>
+											<button className="opacity-60 hover:opacity-100" onClick={() => onConfirmRevoke(null)}>
+												Keep
+											</button>
+										</span>
+									) : (
+										<button
+											className="opacity-40 transition-opacity hover:opacity-90"
+											title={`Remove ${peer.name} and their nominations and votes`}
+											aria-label={`Remove ${peer.name}`}
+											onClick={() => onConfirmRevoke(id)}
+										>
+											✕
+										</button>
+									)
+								)}
+							</li>
+						);
+					})}
+				</ul>
+			</div>
+		</div>
+	);
+}
+
 export function PollPage({ pollCode, displayName, autoShare = false, isHost = false, onLeave: _onLeave, onSetName }: Props) {
 	const { state, selfId, nominateMovie, submitBallot, advancePhase, revokePeer } = usePoll(
 		pollCode,
@@ -530,6 +672,7 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 	const [rankingDragActive, setRankingDragActive] = useState(false);
 	const [nominationDragOver, setNominationDragOver] = useState(false);
 	const [confirmRevoke, setConfirmRevoke] = useState<PeerId | null>(null);
+	const [peopleOpen, setPeopleOpen] = useState(false);
 	const [now, setNow] = useState(Date.now());
 
 	useEffect(() => {
@@ -544,7 +687,7 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 	const peerCount = Object.keys(state.peers).length;
 	const ballotCount = Object.keys(state.ballots).length;
 	const currentUserName = localDisplayName || displayName || state.peers[selfId]?.name || 'Guest';
-	const statusText = pollStatusText(state.phase, peerCount, ballotCount);
+	const statusText = pollStatusText(state.phase, peerCount, ballotCount, uniqueNominators);
 	const deadlineMinutes = state.settings?.deadlineMinutes ?? 10080;
 	const deadlineAt = state.createdAt !== null ? state.createdAt + deadlineMinutes * 60_000 : null;
 
@@ -827,17 +970,22 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 				</button>
 			</header>
 
+			{/* Status banner — also the button that opens the people sheet */}
 			<div className="flex justify-center px-5 pt-4">
-				<div
-					className="rounded-full px-4 py-1.5 text-xs font-semibold text-center"
+				<button
+					className="flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold text-center transition-transform hover:scale-[1.03] active:scale-[0.98]"
 					style={{
 						background: 'oklch(0.8 0.12 295 / 0.12)',
 						color: 'oklch(0.8 0.12 295)',
 						border: '1px solid oklch(0.8 0.12 295 / 0.25)',
 					}}
+					onClick={() => setPeopleOpen(true)}
+					title="View people in this poll"
+					aria-haspopup="dialog"
 				>
+					<Users className="h-3.5 w-3.5" />
 					{statusText}
-				</div>
+				</button>
 			</div>
 
 			{state.phase === 'voting' && deadlineAt !== null && (
@@ -869,55 +1017,6 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 							Nominate{maxNominationsPerUser > 1 ? ` (${userNominationCount + 1}/${maxNominationsPerUser})` : ''}
 						</p>
 						<MovieSearch onSelect={setPendingNomination} />
-					</section>
-				)}
-
-				{/* People in this poll; the host can remove someone, which also removes their nominations and votes */}
-				{peerCount > 0 && (
-					<section className="glass-card p-4">
-						<p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-							People — {peerCount}
-						</p>
-						<ul className="flex flex-wrap gap-2">
-							{Object.entries(state.peers).map(([id, peer]) => (
-								<li
-									key={id}
-									className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs"
-									style={{ background: 'oklch(1 0 0 / 0.05)', border: '1px solid oklch(1 0 0 / 0.09)' }}
-								>
-									<span>
-										{peer.name}
-										{id === selfId ? ' (you)' : ''}
-										{id === state.hostId ? ' 👑' : ''}
-									</span>
-									{isHost && id !== selfId && (
-										confirmRevoke === id ? (
-											<span className="flex items-center gap-1.5">
-												<button
-													className="font-semibold"
-													style={{ color: 'oklch(0.62 0.22 25)' }}
-													onClick={() => { revokePeer(id); setConfirmRevoke(null); }}
-												>
-													Remove
-												</button>
-												<button className="opacity-60 hover:opacity-100" onClick={() => setConfirmRevoke(null)}>
-													Keep
-												</button>
-											</span>
-										) : (
-											<button
-												className="opacity-40 transition-opacity hover:opacity-90"
-												title={`Remove ${peer.name} and their nominations and votes`}
-												aria-label={`Remove ${peer.name}`}
-												onClick={() => setConfirmRevoke(id)}
-											>
-												✕
-											</button>
-										)
-									)}
-								</li>
-							))}
-						</ul>
 					</section>
 				)}
 
@@ -1205,6 +1304,22 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 				/>
 			)}
 
+			{peopleOpen && (
+				<PeopleSheet
+					peers={state.peers}
+					hostId={state.hostId}
+					selfId={selfId}
+					isHost={isHost}
+					phase={state.phase}
+					movies={state.movies}
+					ballots={state.ballots}
+					confirmRevoke={confirmRevoke}
+					onConfirmRevoke={setConfirmRevoke}
+					onRevoke={revokePeer}
+					onClose={() => { setPeopleOpen(false); setConfirmRevoke(null); }}
+				/>
+			)}
+
 			{nameEditOpen && (
 				<NameEditModal
 					current={currentUserName}
@@ -1231,4 +1346,4 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 			)}
 		</div>
 	);
-}
+				}
