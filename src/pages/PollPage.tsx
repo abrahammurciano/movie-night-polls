@@ -81,9 +81,9 @@ function RankBanner({ rank }: { rank: number }) {
 	);
 }
 
-function pollStatusText(phase: Phase, peerCount: number, ballotCount: number): string {
+function pollStatusText(phase: Phase, peerCount: number, ballotCount: number, nominationCount: number): string {
 	if (peerCount <= 1) return "You're the only one here";
-	if (phase === 'nominations') return `${peerCount} joined · nominating`;
+	if (phase === 'nominations') return `${peerCount} joined · ${nominationCount} nominated`;
 	if (phase === 'voting') return `${peerCount} joined · ${ballotCount} voted`;
 	return `${peerCount} joined · voting closed`;
 }
@@ -537,6 +537,30 @@ interface PeopleSheetProps {
 
 function PeopleSheet({ peers, hostId, selfId, isHost, phase, movies, ballots, confirmRevoke, onConfirmRevoke, onRevoke, onClose }: PeopleSheetProps) {
 	const entries = Object.entries(peers);
+	const sheetRef = useRef<HTMLDivElement>(null);
+	const closeRef = useRef(onClose);
+	closeRef.current = onClose;
+	useEffect(() => {
+		const previousFocus = document.activeElement as HTMLElement | null;
+		const previousOverflow = document.body.style.overflow;
+		document.body.style.overflow = 'hidden';
+		const sheet = sheetRef.current;
+		sheet?.querySelector<HTMLButtonElement>('button')?.focus();
+		function handleKey(event: KeyboardEvent) {
+			if (event.key === 'Escape') { event.preventDefault(); closeRef.current(); }
+			if (event.key !== 'Tab' || !sheet) return;
+			const buttons = Array.from(sheet.querySelectorAll<HTMLButtonElement>('button:not([disabled])'));
+			const first = buttons[0], last = buttons[buttons.length - 1];
+			if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+			else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+		}
+		document.addEventListener('keydown', handleKey);
+		return () => {
+			document.body.style.overflow = previousOverflow;
+			document.removeEventListener('keydown', handleKey);
+			previousFocus?.focus();
+		};
+	}, []);
 	return (
 		<div
 			className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4"
@@ -544,9 +568,11 @@ function PeopleSheet({ peers, hostId, selfId, isHost, phase, movies, ballots, co
 			onClick={onClose}
 		>
 			<div
-				className="glass-card w-full md:max-w-sm rounded-t-2xl md:rounded-2xl p-6 flex flex-col gap-4"
+				ref={sheetRef}
+				className="glass-card w-full md:max-w-sm max-h-[85svh] rounded-t-2xl md:rounded-2xl p-6 flex flex-col gap-4"
 				onClick={(e) => e.stopPropagation()}
 				role="dialog"
+				aria-modal="true"
 				aria-label="People in this poll"
 			>
 				<div className="flex items-center justify-between">
@@ -559,14 +585,14 @@ function PeopleSheet({ peers, hostId, selfId, isHost, phase, movies, ballots, co
 						✕
 					</button>
 				</div>
-				<ul className="flex flex-col gap-2">
+				<ul className="flex min-h-0 flex-col gap-2 overflow-y-auto">
 					{entries.map(([id, peer]) => {
 						const { done, label } = participantStatus(phase, id, movies, ballots);
-						const colour = done ? 'oklch(0.75 0.16 160)' : 'oklch(1 0 0 / 0.4)';
+						const colour = done ? 'oklch(0.75 0.16 160)' : 'oklch(0.72 0.01 265)';
 						return (
 							<li
 								key={id}
-								className="flex items-center gap-3 rounded-xl px-3 py-2.5"
+								className="flex shrink-0 items-center gap-3 rounded-xl px-3 py-2.5"
 								style={{
 									background: 'oklch(1 0 0 / 0.05)',
 									border: `1px solid ${done ? 'oklch(0.75 0.16 160 / 0.45)' : 'oklch(1 0 0 / 0.09)'}`,
@@ -577,13 +603,15 @@ function PeopleSheet({ peers, hostId, selfId, isHost, phase, movies, ballots, co
 									style={{ background: colour }}
 									aria-hidden="true"
 								/>
-								<span className="min-w-0 flex-1 truncate text-sm font-medium">
-									{peer.name}
-									{id === selfId ? ' (you)' : ''}
-									{id === hostId ? ' 👑' : ''}
-								</span>
-								<span className="text-xs font-medium whitespace-nowrap" style={{ color: colour }}>
-									{label}
+								<span className="min-w-0 flex-1">
+									<span className="block break-words text-sm font-medium">
+										{peer.name}
+										{id === selfId ? ' (you)' : ''}
+										{id === hostId ? ' 👑' : ''}
+									</span>
+									<span className="block text-xs font-medium" style={{ color: colour }}>
+										{label}
+									</span>
 								</span>
 								{isHost && id !== selfId && (
 									confirmRevoke === id ? (
@@ -659,7 +687,7 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 	const peerCount = Object.keys(state.peers).length;
 	const ballotCount = Object.keys(state.ballots).length;
 	const currentUserName = localDisplayName || displayName || state.peers[selfId]?.name || 'Guest';
-	const statusText = pollStatusText(state.phase, peerCount, ballotCount);
+	const statusText = pollStatusText(state.phase, peerCount, ballotCount, uniqueNominators);
 	const deadlineMinutes = state.settings?.deadlineMinutes ?? 10080;
 	const deadlineAt = state.createdAt !== null ? state.createdAt + deadlineMinutes * 60_000 : null;
 
@@ -1318,4 +1346,4 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 			)}
 		</div>
 	);
-}
+				}
