@@ -9,10 +9,13 @@ import { storageKey } from '@/lib/identity';
 
 export interface CreatePollSettings {
 	maxNominationsPerUser: number;
+	/** Minutes after poll creation when voting closes automatically. */
+	deadlineMinutes: number;
 }
 
 export const DEFAULT_POLL_SETTINGS: CreatePollSettings = {
 	maxNominationsPerUser: 1,
+	deadlineMinutes: 10080, // 1 week
 };
 
 const KEY = storageKey('pollDefaults');
@@ -33,5 +36,8 @@ export function savePollSettings(settings: CreatePollSettings): void {
 }
 
 export function settingsModified(settings: CreatePollSettings): boolean {
-	return settings.maxNominationsPerUser !== DEFAULT_POLL_SETTINGS.maxNominationsPerUser;
+	return (
+		settings.maxNominationsPerUser !== DEFAULT_POLL_SETTINGS.maxNominationsPerUser ||
+		settings.deadlineMinutes !== DEFAULT_POLL_SETTINGS.deadlineMinutes
+	);
 }

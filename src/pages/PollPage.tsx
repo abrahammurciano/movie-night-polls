@@ -505,7 +505,7 @@ function NamePromptOverlay({ onSubmit, isCreator = false }: { onSubmit: (name: s
 }
 
 export function PollPage({ pollCode, displayName, autoShare = false, isHost = false, onLeave: _onLeave, onSetName }: Props) {
-	const { state, selfId, nominateMovie, submitBallot, advancePhase } = usePoll(
+	const { state, selfId, nominateMovie, submitBallot, advancePhase, revokePeer } = usePoll(
 		pollCode,
 		displayName,
 		isHost,
@@ -528,6 +528,8 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 	const [localDisplayName, setLocalDisplayName] = useState(displayName);
 	const [rankingDragActive, setRankingDragActive] = useState(false);
 	const [nominationDragOver, setNominationDragOver] = useState(false);
+	const [confirmRevoke, setConfirmRevoke] = useState<PeerId | null>(null);
+	const [now, setNow] = useState(Date.now());
 
 	useEffect(() => {
 		localStorage.setItem(storageKey(`ranking.${pollCode}`), JSON.stringify(ranking));
@@ -542,6 +544,23 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 	const ballotCount = Object.keys(state.ballots).length;
 	const currentUserName = localDisplayName || displayName || state.peers[selfId]?.name || 'Guest';
 	const statusText = pollStatusText(state.phase, peerCount, ballotCount);
+	const deadlineMinutes = state.settings?.deadlineMinutes ?? 10080;
+	const deadlineAt = state.createdAt !== null ? state.createdAt + deadlineMinutes * 60_000 : null;
+
+	useEffect(() => {
+		if (state.phase !== 'voting' || deadlineAt === null) return;
+		const timer = setInterval(() => setNow(Date.now()), 30_000);
+		return () => clearInterval(timer);
+	}, [state.phase, deadlineAt]);
+
+	function formatRemaining(ms: number): string {
+		if (ms <= 0) return 'less than a minute';
+		const mins = Math.ceil(ms / 60_000);
+		if (mins < 60) return `${mins}m`;
+		const hours = Math.floor(mins / 60);
+		if (hours < 48) return `${hours}h`;
+		return `${Math.round(hours / 24)}d`;
+	}
 
 	function resetDrag() {
 		if (dragStartTimeout.current) { clearTimeout(dragStartTimeout.current); dragStartTimeout.current = null; }
@@ -811,6 +830,12 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 				</div>
 			</div>
 
+			{state.phase === 'voting' && deadlineAt !== null && (
+				<p className="px-5 pt-2 text-center text-xs text-muted-foreground">
+					Voting closes in {formatRemaining(deadlineAt - now)}
+				</p>
+			)}
+
 			<main className="flex flex-1 flex-col gap-4 px-5 py-5">
 				{/* Instructions — prominent phase guidance at the top of the page */}
 				<section
@@ -834,6 +859,55 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 							Nominate{maxNominationsPerUser > 1 ? ` (${userNominationCount + 1}/${maxNominationsPerUser})` : ''}
 						</p>
 						<MovieSearch onSelect={setPendingNomination} />
+					</section>
+				)}
+
+				{/* People in this poll; the host can remove someone, which also removes their nominations and votes */}
+				{peerCount > 0 && (
+					<section className="glass-card p-4">
+						<p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+							People — {peerCount}
+						</p>
+						<ul className="flex flex-wrap gap-2">
+							{Object.entries(state.peers).map(([id, peer]) => (
+								<li
+									key={id}
+									className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs"
+									style={{ background: 'oklch(1 0 0 / 0.05)', border: '1px solid oklch(1 0 0 / 0.09)' }}
+								>
+									<span>
+										{peer.name}
+										{id === selfId ? ' (you)' : ''}
+										{id === state.hostId ? ' 👑' : ''}
+									</span>
+									{isHost && id !== selfId && (
+										confirmRevoke === id ? (
+											<span className="flex items-center gap-1.5">
+												<button
+													className="font-semibold"
+													style={{ color: 'oklch(0.62 0.22 25)' }}
+													onClick={() => { revokePeer(id); setConfirmRevoke(null); }}
+												>
+													Remove
+												</button>
+												<button className="opacity-60 hover:opacity-100" onClick={() => setConfirmRevoke(null)}>
+													Keep
+												</button>
+											</span>
+										) : (
+											<button
+												className="opacity-40 transition-opacity hover:opacity-90"
+												title={`Remove ${peer.name} and their nominations and votes`}
+												aria-label={`Remove ${peer.name}`}
+												onClick={() => setConfirmRevoke(id)}
+											>
+												✕
+											</button>
+										)
+									)}
+								</li>
+							))}
+						</ul>
 					</section>
 				)}
 

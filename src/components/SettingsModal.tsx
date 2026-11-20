@@ -1,19 +1,29 @@
 import { Button } from '@/components/ui/button';
+import type { CreatePollSettings } from '@/lib/pollSettings';
 
 interface Props {
 	isOpen: boolean;
 	onClose: () => void;
-	maxNominationsPerUser: number;
-	onChange: (settings: { maxNominationsPerUser: number }) => void;
+	settings: CreatePollSettings;
+	onChange: (settings: CreatePollSettings) => void;
 }
 
-export function SettingsModal({ isOpen, onClose, maxNominationsPerUser, onChange }: Props) {
+const DEADLINE_OPTIONS: Array<{ minutes: number; label: string }> = [
+	{ minutes: 60, label: '1 hour' },
+	{ minutes: 720, label: '12 hours' },
+	{ minutes: 1440, label: '1 day' },
+	{ minutes: 4320, label: '3 days' },
+	{ minutes: 10080, label: '1 week (default)' },
+	{ minutes: 20160, label: '2 weeks' },
+];
+
+export function SettingsModal({ isOpen, onClose, settings, onChange }: Props) {
 	if (!isOpen) return null;
 
-	function handleChange(value: string) {
+	function handleMaxNominations(value: string) {
 		const parsed = parseInt(value);
 		if (isNaN(parsed)) return;
-		onChange({ maxNominationsPerUser: Math.min(20, Math.max(1, parsed)) });
+		onChange({ ...settings, maxNominationsPerUser: Math.min(20, Math.max(1, parsed)) });
 	}
 
 	return (
@@ -43,11 +53,35 @@ export function SettingsModal({ isOpen, onClose, maxNominationsPerUser, onChange
 							min="1"
 							max="20"
 							className="cinema-input"
-							value={maxNominationsPerUser}
-							onChange={(e) => handleChange(e.target.value)}
+							value={settings.maxNominationsPerUser}
+							onChange={(e) => handleMaxNominations(e.target.value)}
 						/>
 						<p className="text-[11px] text-muted-foreground">
 							How many movies can each person nominate?
+						</p>
+					</div>
+
+					<div className="space-y-2">
+						<label
+							className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground"
+							htmlFor="deadline"
+						>
+							Voting deadline
+						</label>
+						<select
+							id="deadline"
+							className="cinema-input"
+							value={settings.deadlineMinutes}
+							onChange={(e) => onChange({ ...settings, deadlineMinutes: parseInt(e.target.value) })}
+						>
+							{DEADLINE_OPTIONS.map((option) => (
+								<option key={option.minutes} value={option.minutes}>
+									{option.label}
+								</option>
+							))}
+						</select>
+						<p className="text-[11px] text-muted-foreground">
+							Voting closes automatically this long after the poll is created.
 						</p>
 					</div>
 

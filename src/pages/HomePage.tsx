@@ -244,7 +244,7 @@ export function HomePage({ onJoin, initialCode, initialName }: Props) {
 			<SettingsModal
 				isOpen={showSettingsModal}
 				onClose={() => setShowSettingsModal(false)}
-				maxNominationsPerUser={settings.maxNominationsPerUser}
+				settings={settings}
 				onChange={updateSettings}
 			/>
 
