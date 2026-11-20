@@ -2,7 +2,7 @@ import { usePoll } from '@/hooks/usePoll';
 import { Button } from '@/components/ui/button';
 import { MovieSearch, type MovieData } from '@/components/MovieSearch';
 import { VoteChart } from '@/components/VoteChart';
-import { posterUrl, getGenreNames } from '@/lib/tmdb';
+import { posterUrl, getGenreNames, getImdbId } from '@/lib/tmdb';
 import { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import type { Movie, PeerId } from '@/types';
@@ -97,12 +97,20 @@ interface MovieDetailsModalProps {
 
 function MovieDetailsModal({ movie, onClose, peerName, onNominate, userNominationCount = 0, maxNominationsPerUser = 1 }: MovieDetailsModalProps) {
 	const [genres, setGenres] = useState<string[]>([]);
+	const [imdbId, setImdbId] = useState<string | null>(null);
 
 	useEffect(() => {
 		if (movie?.genreIds) {
 			getGenreNames(movie.genreIds).then(setGenres);
 		}
 	}, [movie?.genreIds]);
+
+	useEffect(() => {
+		setImdbId(null);
+		if (movie?.tmdbId) {
+			getImdbId(movie.tmdbId).then(setImdbId);
+		}
+	}, [movie?.tmdbId]);
 
 	if (!movie) return null;
 
@@ -180,6 +188,18 @@ function MovieDetailsModal({ movie, onClose, peerName, onNominate, userNominatio
 								</span>
 								<span className="text-muted-foreground">/10</span>
 							</p>
+						)}
+
+						{imdbId && (
+							<a
+								href={`https://www.imdb.com/title/${imdbId}/`}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="mt-2 inline-flex items-center gap-1 text-sm font-medium hover:underline"
+								style={{ color: 'oklch(0.8 0.12 295)' }}
+							>
+								View on IMDb ↗
+							</a>
 						)}
 
 						{genres.length > 0 && (
