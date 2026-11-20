@@ -10,7 +10,7 @@
 import * as Y from 'yjs';
 import type { Room } from 'trystero';
 import type { PollEvent, PollState, Phase } from '@/types';
-import { runInstantRunoff } from '@/lib/voting';
+import { runVote } from '@/lib/voting';
 
 const DOC_KEY = 'events';
 
@@ -98,7 +98,7 @@ export function createEventLog(persistKey?: string): EventLog {
 						if (state.phase === 'nominations') state.phase = 'voting';
 						else if (state.phase === 'voting') {
 							state.phase = 'results';
-							const result = runInstantRunoff(state.ballots, state.movies);
+							const result = runVote(state.settings?.votingMethod ?? 'irv', state.ballots, state.movies);
 							state.winner = result.winners;
 							state.finalTally = result.finalTally; state.eliminatedVotes = result.eliminatedVotes;
 						}

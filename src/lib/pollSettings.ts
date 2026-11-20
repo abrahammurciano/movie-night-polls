@@ -6,16 +6,20 @@
  */
 
 import { storageKey } from '@/lib/identity';
+import type { VotingMethod } from '@/types';
 
 export interface CreatePollSettings {
 	maxNominationsPerUser: number;
 	/** Minutes after poll creation when voting closes automatically. */
 	deadlineMinutes: number;
+	/** Method used to decide the winner. */
+	votingMethod: VotingMethod;
 }
 
 export const DEFAULT_POLL_SETTINGS: CreatePollSettings = {
 	maxNominationsPerUser: 1,
 	deadlineMinutes: 10080, // 1 week
+	votingMethod: 'irv',
 };
 
 const KEY = storageKey('pollDefaults');
@@ -38,6 +42,7 @@ export function savePollSettings(settings: CreatePollSettings): void {
 export function settingsModified(settings: CreatePollSettings): boolean {
 	return (
 		settings.maxNominationsPerUser !== DEFAULT_POLL_SETTINGS.maxNominationsPerUser ||
-		settings.deadlineMinutes !== DEFAULT_POLL_SETTINGS.deadlineMinutes
+		settings.deadlineMinutes !== DEFAULT_POLL_SETTINGS.deadlineMinutes ||
+		settings.votingMethod !== DEFAULT_POLL_SETTINGS.votingMethod
 	);
 }
