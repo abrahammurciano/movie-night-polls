@@ -17,6 +17,7 @@ export function usePoll(pollCode: string, displayName: string, isHost: boolean) 
 	const [state, setState] = useState<PollState>({
 		phase: 'nominations',
 		hostId: null,
+		createdAt: null,
 		settings: null,
 		peers: {},
 		movies: [],
@@ -77,6 +78,10 @@ export function usePoll(pollCode: string, displayName: string, isHost: boolean) 
 		logRef.current.append({ type: 'phase_advanced', peerId: selfId, timestamp: Date.now() });
 	}, []);
 
+	const revokePeer = useCallback((peerId: string) => {
+		logRef.current.append({ type: 'peer_revoked', peerId: selfId, revokedPeerId: peerId, timestamp: Date.now() });
+	}, []);
+
 	// Auto-close when every peer has voted (host only, to avoid duplicate events)
 	useEffect(() => {
 		if (!isHost || state.phase !== 'voting') return;
@@ -87,5 +92,20 @@ export function usePoll(pollCode: string, displayName: string, isHost: boolean) 
 		}
 	}, [isHost, state.phase, state.peers, state.ballots]);
 
-	return { state, selfId, nominateMovie, submitBallot, advancePhase };
+	// Auto-close voting when the poll deadline passes (host only, to avoid duplicate events)
+	useEffect(() => {
+		if (!isHost || state.phase !== 'voting' || state.createdAt === null) return;
+		const deadlineMinutes = state.settings?.deadlineMinutes ?? 10080;
+		const deadlineAt = state.createdAt + deadlineMinutes * 60_000;
+		const close = () => {
+			if (Date.now() >= deadlineAt) {
+				logRef.current.append({ type: 'phase_advanced', peerId: selfId, timestamp: Date.now() });
+			}
+		};
+		close();
+		const timer = setInterval(close, 30_000);
+		return () => clearInterval(timer);
+	}, [isHost, state.phase, state.createdAt, state.settings]);
+
+	return { state, selfId, nominateMovie, submitBallot, advancePhase, revokePeer };
 }

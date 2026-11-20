@@ -71,3 +71,28 @@ describe('createEventLog', () => {
 		expect(state.winner.map((entry) => entry.id)).toEqual(['winner']);
 	});
 });
+
+describe('peer_revoked', () => {
+	it('lets only the host remove a peer along with their nominations and ballots', () => {
+		const log = createEventLog();
+		const current = latestState(log);
+
+		log.append({ type: 'poll_created', peerId: 'host', settings: { hostId: 'host' }, timestamp: 1 });
+		log.append({ type: 'peer_joined', peerId: 'host', name: 'Host', timestamp: 2 });
+		log.append({ type: 'peer_joined', peerId: 'guest', name: 'Guest', timestamp: 3 });
+		log.append({ type: 'nomination', peerId: 'host', movie: movie('m1', 1), timestamp: 4 });
+		log.append({ type: 'nomination', peerId: 'guest', movie: movie('m2', 2), timestamp: 5 });
+		log.append({ type: 'phase_advanced', peerId: 'host', timestamp: 6 });
+		log.append({ type: 'ballot', peerId: 'guest', ranking: ['m2', 'm1'], timestamp: 7 });
+
+		// A non-host revoke is ignored
+		log.append({ type: 'peer_revoked', peerId: 'guest', revokedPeerId: 'host', timestamp: 8 });
+		expect(current.get().peers['host']).toBeDefined();
+
+		log.append({ type: 'peer_revoked', peerId: 'host', revokedPeerId: 'guest', timestamp: 9 });
+		const state = current.get();
+		expect(state.peers['guest']).toBeUndefined();
+		expect(state.ballots['guest']).toBeUndefined();
+		expect(state.movies.map((m) => m.id)).toEqual(['m1']);
+	});
+});

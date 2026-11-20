@@ -4,9 +4,10 @@ interface VoteChartProps {
 	movies: Movie[];
 	tally: Map<string, { primary: number; transferred: number }>;
 	eliminatedVotes: Map<string, number>;
+	label?: string;
 }
 
-export function VoteChart({ movies, tally, eliminatedVotes }: VoteChartProps) {
+export function VoteChart({ movies, tally, eliminatedVotes, label = 'Final round votes' }: VoteChartProps) {
 	const maxVotes = Math.max(
 		...Array.from(tally.values()).map((t) => t.primary + t.transferred),
 		...Array.from(eliminatedVotes.values()),
@@ -28,7 +29,7 @@ export function VoteChart({ movies, tally, eliminatedVotes }: VoteChartProps) {
 	return (
 		<div className="w-full space-y-3">
 			<p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-				Final round votes
+				{label}
 			</p>
 			<div className="space-y-2">
 				{finalMovies.map((movie) => {

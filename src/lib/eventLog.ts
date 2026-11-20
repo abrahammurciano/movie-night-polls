@@ -10,7 +10,7 @@
 import * as Y from 'yjs';
 import type { Room } from 'trystero';
 import type { PollEvent, PollState, Phase } from '@/types';
-import { runInstantRunoff } from '@/lib/voting';
+import { runVote } from '@/lib/voting';
 
 const DOC_KEY = 'events';
 
@@ -18,6 +18,7 @@ export interface EventLog {
 	doc: Y.Doc;
 	append: (event: PollEvent) => void;
 	getEvents: () => PollEvent[];
+	getState: () => PollState;
 	subscribe: (cb: (state: PollState) => void) => () => void;
 	connectRoom: (room: Room) => void;
 }
@@ -53,6 +54,7 @@ export function createEventLog(persistKey?: string): EventLog {
 		const state: PollState = {
 			phase: 'nominations' as Phase,
 			hostId: null,
+			createdAt: null,
 			settings: null,
 			peers: {},
 			movies: [],
@@ -68,6 +70,7 @@ export function createEventLog(persistKey?: string): EventLog {
 					if (state.hostId === null) {
 						state.hostId = event.peerId;
 						state.settings = event.settings;
+						state.createdAt = event.timestamp;
 					}
 					break;
 				case 'peer_joined':
@@ -95,9 +98,20 @@ export function createEventLog(persistKey?: string): EventLog {
 						if (state.phase === 'nominations') state.phase = 'voting';
 						else if (state.phase === 'voting') {
 							state.phase = 'results';
-							const result = runInstantRunoff(state.ballots, state.movies);
+							const result = runVote(state.settings?.votingMethod ?? 'irv', state.ballots, state.movies);
 							state.winner = result.winners;
 							state.finalTally = result.finalTally; state.eliminatedVotes = result.eliminatedVotes;
+						}
+					}
+					break;
+				case 'peer_revoked':
+					if (event.peerId === state.hostId) {
+						delete state.peers[event.revokedPeerId];
+						delete state.ballots[event.revokedPeerId];
+						for (let i = state.movies.length - 1; i >= 0; i--) {
+							const movie = state.movies[i];
+							movie.nominatedBy = movie.nominatedBy.filter((id) => id !== event.revokedPeerId);
+							if (movie.nominatedBy.length === 0) state.movies.splice(i, 1);
 						}
 					}
 					break;
@@ -140,5 +154,5 @@ export function createEventLog(persistKey?: string): EventLog {
 		};
 	}
 
-	return { doc, append, getEvents, subscribe, connectRoom };
+	return { doc, append, getEvents, getState: computeState, subscribe, connectRoom };
 }

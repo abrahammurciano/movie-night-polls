@@ -3,8 +3,10 @@ import { Button } from '@/components/ui/button';
 import { MovieSearch, type MovieData } from '@/components/MovieSearch';
 import { VoteChart } from '@/components/VoteChart';
 import { posterUrl, getGenreNames, getImdbId } from '@/lib/tmdb';
+import { VOTING_METHODS } from '@/lib/voting';
 import { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import type { Movie, PeerId } from '@/types';
 import type { Phase } from '@/types';
 import { storageKey } from '@/lib/identity';
@@ -57,19 +59,19 @@ function RankBanner({ rank }: { rank: number }) {
 	return (
 		<div
 			className="absolute top-0 left-0 overflow-hidden rounded-tl-xl pointer-events-none"
-			style={{ width: '56px', height: '56px' }}
+			style={{ width: '44px', height: '44px' }}
 		>
 			<div
 				className="absolute text-center font-bold leading-none whitespace-nowrap"
 				style={{
 					background: 'oklch(0.8 0.12 295 / 0.72)',
 					color: 'oklch(0.17 0.03 295)',
-					fontSize: '12px',
+					fontSize: '10px',
 					letterSpacing: '0.03em',
-					width: '72px',
+					width: '60px',
 					padding: '2px 0',
-					top: '12px',
-					left: '-18px',
+					top: '10px',
+					left: '-16px',
 					transform: 'rotate(-45deg)',
 				}}
 			>
@@ -458,7 +460,7 @@ function PhaseConfirmModal({
 	);
 }
 
-function NamePromptOverlay({ onSubmit }: { onSubmit: (name: string) => void }) {
+function NamePromptOverlay({ onSubmit, isCreator = false }: { onSubmit: (name: string) => void; isCreator?: boolean }) {
 	const [name, setName] = useState('');
 
 	function submit() {
@@ -475,8 +477,10 @@ function NamePromptOverlay({ onSubmit }: { onSubmit: (name: string) => void }) {
 				className="glass-card w-full md:max-w-sm rounded-t-2xl md:rounded-2xl p-6 flex flex-col gap-5"
 			>
 				<div>
-					<p className="text-base font-semibold">You've been invited!</p>
-					<p className="mt-1 text-sm text-muted-foreground">Enter your name to join the poll.</p>
+					<p className="text-base font-semibold">{isCreator ? 'Your poll is ready!' : "You've been invited!"}</p>
+					<p className="mt-1 text-sm text-muted-foreground">
+						{isCreator ? 'Enter your name before sharing the poll.' : 'Enter your name to join the poll.'}
+					</p>
 				</div>
 				<div className="flex flex-col gap-3">
 					<input
@@ -493,7 +497,7 @@ function NamePromptOverlay({ onSubmit }: { onSubmit: (name: string) => void }) {
 						disabled={!name.trim()}
 						onClick={submit}
 					>
-						Join poll
+						{isCreator ? 'Continue' : 'Join poll'}
 					</button>
 				</div>
 			</div>
@@ -502,7 +506,7 @@ function NamePromptOverlay({ onSubmit }: { onSubmit: (name: string) => void }) {
 }
 
 export function PollPage({ pollCode, displayName, autoShare = false, isHost = false, onLeave: _onLeave, onSetName }: Props) {
-	const { state, selfId, nominateMovie, submitBallot, advancePhase } = usePoll(
+	const { state, selfId, nominateMovie, submitBallot, advancePhase, revokePeer } = usePoll(
 		pollCode,
 		displayName,
 		isHost,
@@ -518,12 +522,15 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 	const dragStartTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
 	const [pendingNomination, setPendingNomination] = useState<MovieData | null>(null);
-	const [shareOpen, setShareOpen] = useState(autoShare);
+	const [shareOpen, setShareOpen] = useState(autoShare && Boolean(displayName));
+	const pendingAutoShare = useRef(autoShare && !displayName);
 	const [confirmPhase, setConfirmPhase] = useState(false);
 	const [nameEditOpen, setNameEditOpen] = useState(false);
 	const [localDisplayName, setLocalDisplayName] = useState(displayName);
 	const [rankingDragActive, setRankingDragActive] = useState(false);
 	const [nominationDragOver, setNominationDragOver] = useState(false);
+	const [confirmRevoke, setConfirmRevoke] = useState<PeerId | null>(null);
+	const [now, setNow] = useState(Date.now());
 
 	useEffect(() => {
 		localStorage.setItem(storageKey(`ranking.${pollCode}`), JSON.stringify(ranking));
@@ -538,6 +545,23 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 	const ballotCount = Object.keys(state.ballots).length;
 	const currentUserName = localDisplayName || displayName || state.peers[selfId]?.name || 'Guest';
 	const statusText = pollStatusText(state.phase, peerCount, ballotCount);
+	const deadlineMinutes = state.settings?.deadlineMinutes ?? 10080;
+	const deadlineAt = state.createdAt !== null ? state.createdAt + deadlineMinutes * 60_000 : null;
+
+	useEffect(() => {
+		if (state.phase !== 'voting' || deadlineAt === null) return;
+		const timer = setInterval(() => setNow(Date.now()), 30_000);
+		return () => clearInterval(timer);
+	}, [state.phase, deadlineAt]);
+
+	function formatRemaining(ms: number): string {
+		if (ms <= 0) return 'less than a minute';
+		const mins = Math.ceil(ms / 60_000);
+		if (mins < 60) return `${mins}m`;
+		const hours = Math.floor(mins / 60);
+		if (hours < 48) return `${hours}h`;
+		return `${Math.round(hours / 24)}d`;
+	}
 
 	function resetDrag() {
 		if (dragStartTimeout.current) { clearTimeout(dragStartTimeout.current); dragStartTimeout.current = null; }
@@ -553,6 +577,18 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 
 	function removeFromRanking(id: string) {
 		setRanking((prev) => prev.filter((x) => x !== id));
+	}
+
+	function moveInRanking(id: string, delta: -1 | 1) {
+		setRanking((prev) => {
+			const idx = prev.indexOf(id);
+			if (idx === -1) return prev;
+			const next = idx + delta;
+			if (next < 0 || next >= prev.length) return prev;
+			const copy = [...prev];
+			[copy[idx], copy[next]] = [copy[next], copy[idx]];
+			return copy;
+		});
 	}
 
 	function handleDragStart(e: React.DragEvent, id: string) {
@@ -626,6 +662,7 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 
 	if (state.phase === 'results') {
 		const isTie = state.winner.length > 1;
+		const votingMethod = state.settings?.votingMethod ?? 'irv';
 
 		return (
 			<div className="flex min-h-svh flex-col items-center justify-center gap-5 px-6 py-14 text-center">
@@ -707,6 +744,9 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 									>
 										{state.winner[0].title}
 									</h2>
+									<p className="mt-1 text-xs text-muted-foreground">
+										Decided by {VOTING_METHODS[votingMethod].name}
+									</p>
 									{state.winner[0].year && (
 										<p className="mt-1 text-sm text-muted-foreground">{state.winner[0].year}</p>
 									)}
@@ -727,7 +767,12 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 
 {state.movies.length > 0 && (
 				<div className="w-full max-w-xs rounded-xl p-4" style={{ background: 'oklch(1 0 0 / 0.04)', border: '1px solid oklch(1 0 0 / 0.08)' }}>
-					<VoteChart movies={state.movies} tally={state.finalTally} eliminatedVotes={state.eliminatedVotes} />
+					<VoteChart
+						movies={state.movies}
+						tally={state.finalTally}
+						eliminatedVotes={state.eliminatedVotes}
+						label={votingMethod === 'irv' ? undefined : `${VOTING_METHODS[votingMethod].name} scores`}
+					/>
 					</div>
 				)}
 
@@ -795,7 +840,28 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 				</div>
 			</div>
 
+			{state.phase === 'voting' && deadlineAt !== null && (
+				<p className="px-5 pt-2 text-center text-xs text-muted-foreground">
+					Voting closes in {formatRemaining(deadlineAt - now)}
+				</p>
+			)}
+
 			<main className="flex flex-1 flex-col gap-4 px-5 py-5">
+				{/* Instructions — prominent phase guidance at the top of the page */}
+				<section
+					className="glass-card p-4"
+					style={{
+						border: '1px solid oklch(0.8 0.12 295 / 0.4)',
+						background: 'oklch(0.8 0.12 295 / 0.09)',
+					}}
+				>
+					<p className="text-center text-sm font-medium leading-relaxed">
+						{state.phase === 'nominations'
+							? '🎥 Nominate the movies you’d like to watch. Once everyone’s picks are in, the host will start the vote.'
+							: '🗳️ Rank all the movies in order of preference — most wanted at the top — then submit your ballot.'}
+					</p>
+				</section>
+
 				{/* Nominate — only during nominations phase, only until user has reached max nominations */}
 				{state.phase === 'nominations' && canNominate && (
 					<section className="glass-card p-5 relative z-[1]">
@@ -803,6 +869,55 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 							Nominate{maxNominationsPerUser > 1 ? ` (${userNominationCount + 1}/${maxNominationsPerUser})` : ''}
 						</p>
 						<MovieSearch onSelect={setPendingNomination} />
+					</section>
+				)}
+
+				{/* People in this poll; the host can remove someone, which also removes their nominations and votes */}
+				{peerCount > 0 && (
+					<section className="glass-card p-4">
+						<p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+							People — {peerCount}
+						</p>
+						<ul className="flex flex-wrap gap-2">
+							{Object.entries(state.peers).map(([id, peer]) => (
+								<li
+									key={id}
+									className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs"
+									style={{ background: 'oklch(1 0 0 / 0.05)', border: '1px solid oklch(1 0 0 / 0.09)' }}
+								>
+									<span>
+										{peer.name}
+										{id === selfId ? ' (you)' : ''}
+										{id === state.hostId ? ' 👑' : ''}
+									</span>
+									{isHost && id !== selfId && (
+										confirmRevoke === id ? (
+											<span className="flex items-center gap-1.5">
+												<button
+													className="font-semibold"
+													style={{ color: 'oklch(0.62 0.22 25)' }}
+													onClick={() => { revokePeer(id); setConfirmRevoke(null); }}
+												>
+													Remove
+												</button>
+												<button className="opacity-60 hover:opacity-100" onClick={() => setConfirmRevoke(null)}>
+													Keep
+												</button>
+											</span>
+										) : (
+											<button
+												className="opacity-40 transition-opacity hover:opacity-90"
+												title={`Remove ${peer.name} and their nominations and votes`}
+												aria-label={`Remove ${peer.name}`}
+												onClick={() => setConfirmRevoke(id)}
+											>
+												✕
+											</button>
+										)
+									)}
+								</li>
+							))}
+						</ul>
 					</section>
 				)}
 
@@ -870,7 +985,31 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 												onDragEnd={canRank ? resetDrag : undefined}
 											>
 												<RankBanner rank={rankMap.get(id) ?? 1} />
-												<span className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-xs font-bold opacity-40 select-none">☰</span>
+												{canRank ? (
+													<div className="flex flex-shrink-0 flex-col items-center justify-center gap-0.5">
+														<button
+															className="rounded p-0.5 opacity-50 transition-opacity hover:opacity-100 disabled:opacity-15"
+															onClick={(e) => { e.stopPropagation(); moveInRanking(id, -1); }}
+															disabled={ranking.indexOf(id) <= 0}
+															title="Move up"
+															aria-label="Move up"
+														>
+															<ChevronUp className="h-4 w-4" />
+														</button>
+														<span className="flex h-5 w-5 items-center justify-center text-xs font-bold opacity-40 select-none">☰</span>
+														<button
+															className="rounded p-0.5 opacity-50 transition-opacity hover:opacity-100 disabled:opacity-15"
+															onClick={(e) => { e.stopPropagation(); moveInRanking(id, 1); }}
+															disabled={ranking.indexOf(id) === -1 || ranking.indexOf(id) >= ranking.length - 1}
+															title="Move down"
+															aria-label="Move down"
+														>
+															<ChevronDown className="h-4 w-4" />
+														</button>
+													</div>
+												) : (
+													<span className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-xs font-bold opacity-40 select-none">☰</span>
+												)}
 												<Poster movie={movie} size="sm" />
 												<div className="min-w-0 flex-1">
 													<p className="line-clamp-2 text-sm font-medium leading-tight pr-5">{movie.title}</p>
@@ -898,7 +1037,7 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 												</div>
 												{canRank && (
 													<button
-														className="absolute top-2 right-2 opacity-25 hover:opacity-80 transition-opacity text-xs leading-none"
+														className="absolute top-1.5 right-1.5 rounded-lg p-1.5 opacity-40 hover:opacity-90 transition-opacity text-base leading-none"
 														onClick={(e) => { e.stopPropagation(); removeFromRanking(id); }}
 														title="Remove from ranking"
 													>✕</button>
@@ -1079,7 +1218,16 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 			)}
 
 			{!displayName && onSetName && (
-				<NamePromptOverlay onSubmit={onSetName} />
+				<NamePromptOverlay
+					isCreator={autoShare}
+					onSubmit={(name) => {
+						onSetName(name);
+						if (pendingAutoShare.current) {
+							pendingAutoShare.current = false;
+							setShareOpen(true);
+						}
+					}}
+				/>
 			)}
 		</div>
 	);
