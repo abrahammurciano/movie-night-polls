@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { SettingsModal } from '@/components/SettingsModal';
 import { storageKey } from '@/lib/identity';
+import { useKnownPolls } from '@/hooks/useKnownPolls';
 import {
 	loadPollSettings,
 	savePollSettings,
@@ -60,6 +61,7 @@ export function HomePage({ onJoin, initialCode, initialName }: Props) {
 	const [code, setCode] = useState(initialCode ?? '');
 	const [settings, setSettings] = useState<CreatePollSettings>(loadPollSettings);
 	const [showSettingsModal, setShowSettingsModal] = useState(false);
+	const { summaries: knownPolls, dismiss: dismissPoll } = useKnownPolls();
 
 	function updateSettings(next: CreatePollSettings) {
 		setSettings(next);
@@ -193,6 +195,51 @@ export function HomePage({ onJoin, initialCode, initialName }: Props) {
 					</Button>
 				</div>
 			</div>
+
+			{/* Existing polls on this device */}
+			{knownPolls.length > 0 && (
+				<div className="glass-card mt-6 w-full max-w-sm p-5 shadow-2xl">
+					<p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+						Your polls
+					</p>
+					<ul className="space-y-2">
+						{knownPolls.map((poll) => (
+							<li
+								key={poll.code}
+								className="flex items-center gap-3 rounded-xl px-3 py-2.5"
+								style={{ background: 'oklch(1 0 0 / 0.04)', border: '1px solid oklch(1 0 0 / 0.07)' }}
+							>
+								<button
+									className="flex min-w-0 flex-1 items-center gap-3 text-left cursor-pointer"
+									onClick={() => onJoin(poll.code, name.trim(), false)}
+								>
+									<span className="font-mono text-sm font-semibold tracking-[0.18em]">
+										{poll.code}
+									</span>
+									<span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+										{poll.phase === 'nominations' && 'Nominating'}
+										{poll.phase === 'voting' && 'Voting'}
+										{poll.phase === 'results' &&
+											(poll.winnerTitles.length > 0
+												? `Winner: ${poll.winnerTitles.join(' & ')}`
+												: 'Closed')}
+									</span>
+								</button>
+								{poll.phase === 'results' && (
+									<button
+										className="flex-shrink-0 rounded-lg p-1 text-xs opacity-40 transition-opacity hover:opacity-90"
+										onClick={() => dismissPoll(poll.code)}
+										title="Dismiss poll"
+										aria-label={`Dismiss poll ${poll.code}`}
+									>
+										✕
+									</button>
+								)}
+							</li>
+						))}
+					</ul>
+				</div>
+			)}
 
 			<SettingsModal
 				isOpen={showSettingsModal}

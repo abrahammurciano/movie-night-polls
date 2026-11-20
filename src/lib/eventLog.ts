@@ -18,6 +18,7 @@ export interface EventLog {
 	doc: Y.Doc;
 	append: (event: PollEvent) => void;
 	getEvents: () => PollEvent[];
+	getState: () => PollState;
 	subscribe: (cb: (state: PollState) => void) => () => void;
 	connectRoom: (room: Room) => void;
 }
@@ -140,5 +141,5 @@ export function createEventLog(persistKey?: string): EventLog {
 		};
 	}
 
-	return { doc, append, getEvents, subscribe, connectRoom };
+	return { doc, append, getEvents, getState: computeState, subscribe, connectRoom };
 }
