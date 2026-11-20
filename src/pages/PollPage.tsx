@@ -459,7 +459,7 @@ function PhaseConfirmModal({
 	);
 }
 
-function NamePromptOverlay({ onSubmit }: { onSubmit: (name: string) => void }) {
+function NamePromptOverlay({ onSubmit, isCreator = false }: { onSubmit: (name: string) => void; isCreator?: boolean }) {
 	const [name, setName] = useState('');
 
 	function submit() {
@@ -476,8 +476,10 @@ function NamePromptOverlay({ onSubmit }: { onSubmit: (name: string) => void }) {
 				className="glass-card w-full md:max-w-sm rounded-t-2xl md:rounded-2xl p-6 flex flex-col gap-5"
 			>
 				<div>
-					<p className="text-base font-semibold">You've been invited!</p>
-					<p className="mt-1 text-sm text-muted-foreground">Enter your name to join the poll.</p>
+					<p className="text-base font-semibold">{isCreator ? 'Your poll is ready!' : "You've been invited!"}</p>
+					<p className="mt-1 text-sm text-muted-foreground">
+						{isCreator ? 'Enter your name before sharing the poll.' : 'Enter your name to join the poll.'}
+					</p>
 				</div>
 				<div className="flex flex-col gap-3">
 					<input
@@ -494,7 +496,7 @@ function NamePromptOverlay({ onSubmit }: { onSubmit: (name: string) => void }) {
 						disabled={!name.trim()}
 						onClick={submit}
 					>
-						Join poll
+						{isCreator ? 'Continue' : 'Join poll'}
 					</button>
 				</div>
 			</div>
@@ -519,7 +521,8 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 	const dragStartTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
 	const [pendingNomination, setPendingNomination] = useState<MovieData | null>(null);
-	const [shareOpen, setShareOpen] = useState(autoShare);
+	const [shareOpen, setShareOpen] = useState(autoShare && Boolean(displayName));
+	const pendingAutoShare = useRef(autoShare && !displayName);
 	const [confirmPhase, setConfirmPhase] = useState(false);
 	const [nameEditOpen, setNameEditOpen] = useState(false);
 	const [localDisplayName, setLocalDisplayName] = useState(displayName);
@@ -1131,7 +1134,16 @@ export function PollPage({ pollCode, displayName, autoShare = false, isHost = fa
 			)}
 
 			{!displayName && onSetName && (
-				<NamePromptOverlay onSubmit={onSetName} />
+				<NamePromptOverlay
+					isCreator={autoShare}
+					onSubmit={(name) => {
+						onSetName(name);
+						if (pendingAutoShare.current) {
+							pendingAutoShare.current = false;
+							setShareOpen(true);
+						}
+					}}
+				/>
 			)}
 		</div>
 	);
