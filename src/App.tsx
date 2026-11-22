@@ -29,6 +29,16 @@ function codeFromPath(): string | null {
 	return match ? match[1].toUpperCase() : null;
 }
 
+function MovedBanner() {
+	return (
+		<div role="region" aria-label="Movie Night Polls has moved" className="w-full bg-primary px-4 py-2 text-center text-sm font-medium text-primary-foreground">
+			This app is no longer updated. Please use the new{' '}
+			<a className="underline font-semibold" href="https://abrahammurciano.github.io/movie-poll/">Movie Poll</a>
+			{' '}instead.
+		</div>
+	);
+}
+
 function App() {
 	const [session, setSession] = useState<Session | null>(() => {
 		const code = codeFromPath();
@@ -61,6 +71,8 @@ function App() {
 
 	if (session) {
 		return (
+			<>
+			<MovedBanner />
 			<PollPage
 				pollCode={session.pollCode}
 				displayName={session.displayName}
@@ -77,10 +89,16 @@ function App() {
 					setSession(null);
 				}}
 			/>
+			</>
 		);
 	}
 
-	return <HomePage onJoin={handleJoin} initialCode={null} initialName={readStoredDisplayName()} />;
+	return (
+		<>
+			<MovedBanner />
+			<HomePage onJoin={handleJoin} initialCode={null} initialName={readStoredDisplayName()} />
+		</>
+	);
 }
 
 export default App
